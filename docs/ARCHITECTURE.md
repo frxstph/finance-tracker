@@ -283,3 +283,15 @@ prefills the amount due (or the balance when nothing is due).
   screen with pinch to zoom. Deleted with the loan. Included in backups
   (same receipts folder); backup format stays version 2 with an optional
   `photo` on loans.
+
+## 14. v1.3 changes (pay screen)
+
+- **Suggested payment** = due this month if anything is; otherwise the next
+  installment (paying ahead), capped at the balance. Never the whole
+  balance of a monthly loan just because nothing is due yet. Used by the
+  pay screen and by quick add.
+- **Pay screen.** A loan's Pay button opens a short confirm screen, not the
+  full entry form: what the payment is ("Due this month", "Payment 1 of 6 ·
+  Dec 2026"), the amount in large type with a "Change" link, balance after
+  it, "Add photo of payment", date paid (today), and a full-width "Confirm
+  payment" button.

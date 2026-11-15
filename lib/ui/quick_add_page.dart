@@ -105,10 +105,8 @@ class _QuickAddPageState extends State<QuickAddPage> {
 
   /// What to pay on [loan] now: the amount due this month, else the whole
   /// balance.
-  int _suggestedLoanAmount(AppState state, Loan loan) {
-    final due = state.loanDueOf(loan);
-    return due > 0 ? due : state.loanBalanceOf(loan);
-  }
+  int _suggestedLoanAmount(AppState state, Loan loan) =>
+      state.loanPaymentSuggestion(loan);
 
   List<Loan> _openLoans(AppState state) => <Loan>[
         for (final l in state.loans)
@@ -381,7 +379,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
     if (balance <= 0) return 'Paid off';
     final dueText = due > 0
         ? 'Due this month ${formatPeso(due)}'
-        : 'Nothing due this month';
+        : 'Next payment ${formatPeso(state.loanPaymentSuggestion(loan))}';
     return '$dueText · Balance ${formatPeso(balance)}';
   }
 }

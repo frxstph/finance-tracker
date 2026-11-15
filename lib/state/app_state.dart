@@ -70,6 +70,11 @@ class AppState extends ChangeNotifier {
   int loanDueOf(Loan loan) =>
       loan.id == null ? 0 : (_summary.loanDues[loan.id] ?? 0);
 
+  /// Amount to put in a payment for [loan]: due this month, else the next
+  /// installment.
+  int loanPaymentSuggestion(Loan loan) =>
+      suggestedLoanPayment(loan, loanDueOf(loan), loanBalanceOf(loan));
+
   Bill? billById(int? id) {
     if (id == null) return null;
     for (final b in _bills) {

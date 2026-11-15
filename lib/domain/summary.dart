@@ -122,6 +122,15 @@ int loanDueInMonth(Loan loan, String month, Iterable<Entry> entries,
   return due < balance ? due : balance;
 }
 
+/// What to pay on [loan] now: what is due this month, else the next
+/// installment (paying ahead), never more than the balance.
+int suggestedLoanPayment(Loan loan, int due, int balance) {
+  if (balance <= 0) return 0;
+  if (due > 0) return due < balance ? due : balance;
+  final next = loan.installment;
+  return next < balance ? next : balance;
+}
+
 /// How many of the plan's payments the money paid so far covers.
 int paymentsCovered(Loan loan, int paid) {
   final per = loan.installment;

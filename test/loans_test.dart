@@ -145,6 +145,17 @@ void main() {
     expect(s.leftToPayAmount, 50000 + 200000);
   });
 
+  test('suggested payment: due this month, else the next installment', () {
+    // Before the plan starts: the first installment, not the whole balance.
+    expect(suggestedLoanPayment(monthly, 0, 600000), 100000);
+    expect(suggestedLoanPayment(monthly, 200000, 600000), 200000);
+    // Never more than what is left.
+    expect(suggestedLoanPayment(monthly, 0, 30000), 30000);
+    expect(suggestedLoanPayment(monthly, 0, 0), 0);
+    // Pay in full suggests the whole balance.
+    expect(suggestedLoanPayment(full, 0, 100000), 100000);
+  });
+
   test('payments covered counts whole installments', () {
     expect(paymentsCovered(monthly, 0), 0);
     expect(paymentsCovered(monthly, 250000), 2);

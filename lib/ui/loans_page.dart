@@ -8,7 +8,7 @@ import '../domain/money.dart';
 import '../domain/summary.dart';
 import '../state/app_state.dart';
 import 'loan_form_page.dart';
-import 'quick_add_page.dart';
+import 'pay_loan_page.dart';
 import 'theme.dart';
 import 'widgets/dialogs.dart';
 import 'widgets/empty_state.dart';
@@ -99,11 +99,7 @@ class _LoanCard extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
-        builder: (_) => QuickAddPage(
-          initialType: EntryType.loanPayment,
-          initialLoanId: loan.id,
-          initialAmount: due > 0 ? due : balance,
-        ),
+        builder: (_) => PayLoanPage(loan: loan),
       ),
     );
   }
