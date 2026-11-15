@@ -230,7 +230,11 @@ class _QuickAddPageState extends State<QuickAddPage> {
     final state = AppScope.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit entry' : 'Add entry'),
+        title: Text(_isEditing
+            ? 'Edit entry'
+            : _type == EntryType.loanPayment
+                ? 'Pay a loan'
+                : 'Add entry'),
         actions: <Widget>[
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -274,6 +278,9 @@ class _QuickAddPageState extends State<QuickAddPage> {
           const SizedBox(height: 16),
           PhotoSection(
             file: _previewFile(state),
+            addLabel: _type == EntryType.loanPayment
+                ? 'Add photo of payment'
+                : 'Add receipt photo',
             onPicked: (path) {
               if (!mounted) return;
               setState(() {

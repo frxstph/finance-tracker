@@ -243,7 +243,8 @@ class BackupService {
       if (l.principal < 0 ||
           !isValidDateKey(l.created) ||
           l.months < 1 ||
-          !isValidMonthKey(l.startMonth)) {
+          !isValidMonthKey(l.startMonth) ||
+          (l.photo != null && !isSafePhotoName(l.photo!))) {
         throw const FormatException('A loan has bad data.');
       }
     }

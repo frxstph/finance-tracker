@@ -166,6 +166,15 @@ void main() {
     expect(Loan.fromMap(l.toMap()).startMonth, '2026-03');
   });
 
+  test('loan photo survives a save round trip and can be cleared', () {
+    final withPhoto = full.copyWith(photo: '123_000001.jpg');
+    expect(withPhoto.hasPhoto, isTrue);
+    expect(Loan.fromMap(withPhoto.toMap()).photo, '123_000001.jpg');
+    expect(withPhoto.copyWith(name: 'Renamed').photo, '123_000001.jpg');
+    expect(withPhoto.copyWith(clearPhoto: true).photo, isNull);
+    expect(full.hasPhoto, isFalse);
+  });
+
   test('loan received entries link to their loan', () {
     expect(EntryType.loanReceived.needsLoan, isTrue);
     expect(EntryType.loanReceived.isMoneyIn, isTrue);

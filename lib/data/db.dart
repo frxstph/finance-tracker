@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-const int schemaVersion = 2;
+const int schemaVersion = 3;
 const String databaseFileName = 'finance.db';
 
 const List<String> _schemaV1 = <String>[
@@ -44,6 +44,11 @@ const List<String> _upgradeToV2 = <String>[
       'WHERE start_month IS NULL',
 ];
 
+/// Version 3: a loan can have a photo (agreement, IOU).
+const List<String> _upgradeToV3 = <String>[
+  'ALTER TABLE loans ADD COLUMN photo TEXT',
+];
+
 /// Opens (and creates on first run) the app database.
 Future<Database> openAppDatabase() async {
   final dir = await getDatabasesPath();
@@ -60,10 +65,18 @@ Future<Database> openAppDatabase() async {
       for (final sql in _upgradeToV2) {
         await db.execute(sql);
       }
+      for (final sql in _upgradeToV3) {
+        await db.execute(sql);
+      }
     },
     onUpgrade: (Database db, int oldVersion, int newVersion) async {
       if (oldVersion < 2) {
         for (final sql in _upgradeToV2) {
+          await db.execute(sql);
+        }
+      }
+      if (oldVersion < 3) {
+        for (final sql in _upgradeToV3) {
           await db.execute(sql);
         }
       }

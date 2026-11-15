@@ -15,7 +15,10 @@ you stand this month.
 - **Bills** with a paid/unpaid state per month and a one-tap "Pay".
 - **Loans** with a repayment plan (pay in full by a month, or monthly over a
   number of months), what's due this month, paid so far and a progress bar.
-  Adding a new loan can put the money into this month's cash.
+  Adding a new loan can put the money into this month's cash, and a loan
+  can keep a photo of its agreement or IOU.
+- **Pay amounts fill themselves**: pick a loan and the amount due this month
+  is filled in; pick a bill and its monthly amount is.
 - **An add button that follows the tab**: add an entry, a bill or a loan.
 - **Backup and restore** as a single zip you can keep in Drive or Files.
 - Light and dark themes that follow the phone.

@@ -266,3 +266,20 @@ prefills the amount due (or the balance when nothing is due).
 
 **Backup.** Exports `version: 2` (loans carry plan fields). Restores version
 1 or 2; version-1 loans read as pay in full.
+
+## 13. v1.2 changes (payment amounts, photos)
+
+- **Pay amounts fill themselves.** Choosing a loan in quick add (or opening
+  it from a Pay button) fills the amount due this month, else the balance;
+  choosing a bill fills its monthly amount. A filled amount is replaced when
+  another bill or loan is picked, never an amount the user typed. With one
+  open loan, it is picked automatically. Paid-off loans are hidden from the
+  payment picker.
+- **Photo button** sits under the amount and picker, labelled "Add photo of
+  payment" for loan payments and "Add receipt photo" otherwise.
+- **Loan photo.** Schema v3 adds `loans.photo TEXT` (file name in
+  `receipts/`, same rules as entry photos). Set in the loan form ("Add photo
+  of agreement"); shown as a thumbnail on the loan card that opens full
+  screen with pinch to zoom. Deleted with the loan. Included in backups
+  (same receipts folder); backup format stays version 2 with an optional
+  `photo` on loans.

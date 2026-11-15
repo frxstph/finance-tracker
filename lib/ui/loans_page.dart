@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../domain/dates.dart';
@@ -11,6 +13,7 @@ import 'theme.dart';
 import 'widgets/dialogs.dart';
 import 'widgets/empty_state.dart';
 import 'widgets/month_switcher.dart';
+import 'widgets/photo_viewer.dart';
 
 enum _LoanAction { edit, delete }
 
@@ -40,6 +43,7 @@ class LoansPage extends StatelessWidget {
             paid: state.loanPaid(l),
             balance: state.loanBalanceOf(l),
             due: state.loanDueOf(l),
+            photo: state.loanPhotoFile(l),
             month: state.monthKeyValue,
           ),
       ],
@@ -54,7 +58,11 @@ class _LoanCard extends StatelessWidget {
     required this.balance,
     required this.due,
     required this.month,
+    required this.photo,
   });
+
+  /// Photo of the loan agreement, or null.
+  final File? photo;
 
   final Loan loan;
   final int paid;
@@ -145,6 +153,10 @@ class _LoanCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
+                if (photo != null) ...<Widget>[
+                  _Thumbnail(file: photo!, title: loan.name),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Text(loan.name, style: theme.textTheme.titleMedium),
                 ),
@@ -192,6 +204,38 @@ class _LoanCard extends StatelessWidget {
               style: numbers?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Thumbnail extends StatelessWidget {
+  const _Thumbnail({required this.file, required this.title});
+
+  final File file;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'View photo',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => showPhotoViewer(context, file, title),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(
+            file,
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(Icons.broken_image_outlined),
+            ),
+          ),
         ),
       ),
     );

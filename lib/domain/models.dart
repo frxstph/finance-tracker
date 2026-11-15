@@ -125,6 +125,7 @@ class Loan {
     this.plan = LoanPlan.full,
     this.months = 1,
     required this.startMonth,
+    this.photo,
   });
 
   final int? id;
@@ -145,6 +146,12 @@ class Loan {
   /// monthly plan.
   final String startMonth;
 
+  /// File name of a photo of the loan (agreement, IOU) in the receipts
+  /// folder, or null.
+  final String? photo;
+
+  bool get hasPhoto => photo != null && photo!.isNotEmpty;
+
   /// Number of payments the plan has.
   int get paymentCount => plan == LoanPlan.full || months < 1 ? 1 : months;
 
@@ -163,6 +170,8 @@ class Loan {
     LoanPlan? plan,
     int? months,
     String? startMonth,
+    String? photo,
+    bool clearPhoto = false,
   }) {
     return Loan(
       id: id ?? this.id,
@@ -172,6 +181,7 @@ class Loan {
       plan: plan ?? this.plan,
       months: months ?? this.months,
       startMonth: startMonth ?? this.startMonth,
+      photo: clearPhoto ? null : (photo ?? this.photo),
     );
   }
 
@@ -184,6 +194,7 @@ class Loan {
       'plan': plan.dbValue,
       'months': paymentCount,
       'start_month': startMonth,
+      'photo': photo,
     };
   }
 
@@ -193,6 +204,7 @@ class Loan {
     final created = _str(map['created'], 'created');
     final rawPlan = map['plan'];
     final rawStart = map['start_month'];
+    final rawPhoto = map['photo'];
     return Loan(
       id: _intOrNull(map['id'], 'id'),
       name: _str(map['name'], 'name'),
@@ -205,6 +217,7 @@ class Loan {
       startMonth: rawStart == null
           ? (created.length >= 7 ? created.substring(0, 7) : created)
           : _str(rawStart, 'start_month'),
+      photo: rawPhoto == null ? null : _str(rawPhoto, 'photo'),
     );
   }
 }

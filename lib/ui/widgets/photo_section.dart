@@ -10,6 +10,7 @@ class PhotoSection extends StatelessWidget {
     required this.file,
     required this.onPicked,
     required this.onRemove,
+    this.addLabel = 'Add photo',
   });
 
   /// The photo to preview, or null when there is none.
@@ -18,6 +19,9 @@ class PhotoSection extends StatelessWidget {
   /// Called with the temporary path of a newly picked image.
   final ValueChanged<String> onPicked;
   final VoidCallback onRemove;
+
+  /// Text on the button when there is no photo yet.
+  final String addLabel;
 
   Future<void> _pick(BuildContext context) async {
     final source = await showModalBottomSheet<ImageSource>(
@@ -59,7 +63,7 @@ class PhotoSection extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: () => _pick(context),
           icon: const Icon(Icons.add_a_photo_outlined),
-          label: const Text('Add photo'),
+          label: Text(addLabel),
         ),
       );
     }

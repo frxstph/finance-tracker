@@ -245,24 +245,56 @@ class AppState extends ChangeNotifier {
 
   /// Inserts or updates [loan]. For a new loan with [addToCash], a "loan
   /// received" entry for the full amount is added today, so the money shows
-  /// in cash on hand.
-  Future<void> saveLoan(Loan loan, {bool addToCash = false}) async {
-    if (loan.id == null) {
-      final Entry? received = addToCash
-          ? Entry(
-              type: EntryType.loanReceived,
-              amount: loan.principal,
-              date: todayKey(),
-              createdAt: DateTime.now().toIso8601String(),
-            )
-          : null;
-      await _repo.insertLoanWithReceipt(loan, received: received);
-      await _reloadLoans();
-      if (received != null) await _reloadEntries();
-    } else {
-      await _repo.updateLoan(loan);
-      await _reloadLoans();
+  /// in cash on hand. [photoChange] works as in [saveEntry].
+  Future<void> saveLoan(
+    Loan loan, {
+    bool addToCash = false,
+    PhotoChange photoChange = PhotoChange.keep,
+    String? newPhotoPath,
+  }) async {
+    final previous = loan.id == null ? null : loanById(loan.id);
+    String? photo = previous?.photo;
+    String? imported;
+    if (photoChange == PhotoChange.replace && newPhotoPath != null) {
+      imported = await _photos.importFile(newPhotoPath);
+      photo = imported;
+    } else if (photoChange == PhotoChange.remove) {
+      photo = null;
     }
+    final toSave = loan.copyWith(photo: photo, clearPhoto: photo == null);
+
+    Entry? received;
+    try {
+      if (toSave.id == null) {
+        received = addToCash
+            ? Entry(
+                type: EntryType.loanReceived,
+                amount: toSave.principal,
+                date: todayKey(),
+                createdAt: DateTime.now().toIso8601String(),
+              )
+            : null;
+        await _repo.insertLoanWithReceipt(toSave, received: received);
+      } else {
+        await _repo.updateLoan(toSave);
+      }
+    } catch (_) {
+      await _photos.delete(imported);
+      rethrow;
+    }
+
+    final oldPhoto = previous?.photo;
+    if (oldPhoto != null && oldPhoto != photo) {
+      await _photos.delete(oldPhoto);
+    }
+    if (received != null) _entries = await _repo.entries();
+    await _reloadLoans();
+  }
+
+  File? loanPhotoFile(Loan loan) {
+    final name = loan.photo;
+    if (name == null || !isSafePhotoName(name)) return null;
+    return _photos.fileFor(name);
   }
 
   /// Deletes a loan that has no payments, along with the money-received
@@ -277,6 +309,7 @@ class AppState extends ChangeNotifier {
     final photos = <String>[
       for (final e in _entries)
         if (e.loanId == id && e.photo != null) e.photo!,
+      if (loan.photo != null) loan.photo!,
     ];
     await _repo.deleteLoanAndReceipts(id);
     for (final name in photos) {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +10,7 @@ import '../state/app_state.dart';
 import 'theme.dart';
 import 'widgets/amount_field.dart';
 import 'widgets/dialogs.dart';
+import 'widgets/photo_section.dart';
 
 /// Opens the form to add a new loan.
 Future<void> showNewLoanForm(BuildContext context) {
@@ -47,6 +50,8 @@ class _LoanFormPageState extends State<LoanFormPage> {
   LoanPlan _plan = LoanPlan.monthly;
   String _startMonth = monthKey(addMonths(DateTime.now(), 1));
   bool _addToCash = true;
+  PhotoChange _photoChange = PhotoChange.keep;
+  String? _newPhotoPath;
   bool _saving = false;
   String? _nameError;
   String? _amountError;
@@ -148,7 +153,12 @@ class _LoanFormPageState extends State<LoanFormPage> {
 
     setState(() => _saving = true);
     try {
-      await state.saveLoan(loan, addToCash: !_isEditing && _addToCash);
+      await state.saveLoan(
+        loan,
+        addToCash: !_isEditing && _addToCash,
+        photoChange: _photoChange,
+        newPhotoPath: _newPhotoPath,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -159,9 +169,23 @@ class _LoanFormPageState extends State<LoanFormPage> {
     Navigator.of(context).pop();
   }
 
+  File? _previewFile(AppState state) {
+    switch (_photoChange) {
+      case PhotoChange.replace:
+        final path = _newPhotoPath;
+        return path == null ? null : File(path);
+      case PhotoChange.remove:
+        return null;
+      case PhotoChange.keep:
+        final l = widget.existing;
+        return l == null ? null : state.loanPhotoFile(l);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final state = AppScope.of(context);
     final preview = _preview();
     return Scaffold(
       appBar: AppBar(
@@ -198,6 +222,22 @@ class _LoanFormPageState extends State<LoanFormPage> {
             errorText: _amountError,
             textInputAction: TextInputAction.next,
             onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          PhotoSection(
+            file: _previewFile(state),
+            addLabel: 'Add photo of agreement',
+            onPicked: (path) {
+              if (!mounted) return;
+              setState(() {
+                _photoChange = PhotoChange.replace;
+                _newPhotoPath = path;
+              });
+            },
+            onRemove: () => setState(() {
+              _photoChange = PhotoChange.remove;
+              _newPhotoPath = null;
+            }),
           ),
           const SizedBox(height: 24),
           Text('How you pay it back', style: theme.textTheme.titleSmall),
