@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/dates.dart';
 import '../../domain/models.dart';
 import '../../domain/money.dart';
 import '../../state/app_state.dart';
@@ -151,28 +150,4 @@ Future<void> showEditBillDialog(BuildContext context, Bill bill) async {
   if (r == null || !context.mounted) return;
   await _run(context,
       () => state.saveBill(bill.copyWith(name: r.name, amount: r.amount)));
-}
-
-Future<void> showNewLoanDialog(BuildContext context) async {
-  final state = AppScope.read(context);
-  final r = await _ask(context,
-      title: 'New loan', nameLabel: 'Name', amountLabel: 'Total owed');
-  if (r == null || !context.mounted) return;
-  await _run(
-      context,
-      () => state.saveLoan(
-          Loan(name: r.name, principal: r.amount, created: todayKey())));
-}
-
-Future<void> showEditLoanDialog(BuildContext context, Loan loan) async {
-  final state = AppScope.read(context);
-  final r = await _ask(context,
-      title: 'Edit loan',
-      nameLabel: 'Name',
-      amountLabel: 'Total owed',
-      initialName: loan.name,
-      initialAmount: loan.principal);
-  if (r == null || !context.mounted) return;
-  await _run(context,
-      () => state.saveLoan(loan.copyWith(name: r.name, principal: r.amount)));
 }

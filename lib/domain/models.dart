@@ -6,7 +6,11 @@ enum EntryType {
   bill('bill', 'Bill'),
   oneTime('one_time', 'One-time'),
   daily('daily', 'Daily'),
-  loanPayment('loan_payment', 'Loan payment');
+  loanPayment('loan_payment', 'Loan payment'),
+
+  /// Money received from a new loan. Raises cash but is not income.
+  /// Created when a loan is added; never picked by hand.
+  loanReceived('loan_received', 'Loan received');
 
   const EntryType(this.dbValue, this.label);
 
@@ -21,6 +25,36 @@ enum EntryType {
       if (t.dbValue == value) return t;
     }
     throw FormatException('Unknown entry type: $value');
+  }
+
+  /// Money coming in (shown green with a plus sign).
+  bool get isMoneyIn => this == income || this == loanReceived;
+
+  /// Linked to a loan through `loan_id`.
+  bool get needsLoan => this == loanPayment || this == loanReceived;
+
+  /// Offered in the quick add type chips.
+  bool get userSelectable => this != loanReceived;
+}
+
+/// How a loan is paid back.
+enum LoanPlan {
+  /// One payment of the whole amount, due in the loan's start month.
+  full('full', 'Pay in full'),
+
+  /// Equal payments over a number of months, from the start month.
+  monthly('monthly', 'Monthly');
+
+  const LoanPlan(this.dbValue, this.label);
+
+  final String dbValue;
+  final String label;
+
+  static LoanPlan fromDb(String value) {
+    for (final p in LoanPlan.values) {
+      if (p.dbValue == value) return p;
+    }
+    throw FormatException('Unknown loan plan: $value');
   }
 }
 
@@ -88,6 +122,9 @@ class Loan {
     required this.name,
     required this.principal,
     required this.created,
+    this.plan = LoanPlan.full,
+    this.months = 1,
+    required this.startMonth,
   });
 
   final int? id;
@@ -99,12 +136,42 @@ class Loan {
   /// yyyy-MM-dd
   final String created;
 
-  Loan copyWith({int? id, String? name, int? principal, String? created}) {
+  final LoanPlan plan;
+
+  /// Number of monthly payments. Always 1 for [LoanPlan.full].
+  final int months;
+
+  /// "yyyy-MM": the due month for a full payment, or the first month of a
+  /// monthly plan.
+  final String startMonth;
+
+  /// Number of payments the plan has.
+  int get paymentCount => plan == LoanPlan.full || months < 1 ? 1 : months;
+
+  /// Amount due each month, rounded up to the centavo so the payments cover
+  /// the total. The last payment is whatever is left.
+  int get installment {
+    final n = paymentCount;
+    return (principal + n - 1) ~/ n;
+  }
+
+  Loan copyWith({
+    int? id,
+    String? name,
+    int? principal,
+    String? created,
+    LoanPlan? plan,
+    int? months,
+    String? startMonth,
+  }) {
     return Loan(
       id: id ?? this.id,
       name: name ?? this.name,
       principal: principal ?? this.principal,
       created: created ?? this.created,
+      plan: plan ?? this.plan,
+      months: months ?? this.months,
+      startMonth: startMonth ?? this.startMonth,
     );
   }
 
@@ -114,15 +181,30 @@ class Loan {
       'name': name,
       'principal': principal,
       'created': created,
+      'plan': plan.dbValue,
+      'months': paymentCount,
+      'start_month': startMonth,
     };
   }
 
+  /// Rows from before repayment plans existed have no plan columns: they
+  /// read as "pay in full", due in the month the loan was added.
   factory Loan.fromMap(Map<String, Object?> map) {
+    final created = _str(map['created'], 'created');
+    final rawPlan = map['plan'];
+    final rawStart = map['start_month'];
     return Loan(
       id: _intOrNull(map['id'], 'id'),
       name: _str(map['name'], 'name'),
       principal: _int(map['principal'], 'principal'),
-      created: _str(map['created'], 'created'),
+      created: created,
+      plan: rawPlan == null
+          ? LoanPlan.full
+          : LoanPlan.fromDb(_str(rawPlan, 'plan')),
+      months: map['months'] == null ? 1 : _int(map['months'], 'months'),
+      startMonth: rawStart == null
+          ? (created.length >= 7 ? created.substring(0, 7) : created)
+          : _str(rawStart, 'start_month'),
     );
   }
 }
@@ -153,7 +235,7 @@ class Entry {
   /// Set only when [type] is [EntryType.bill].
   final int? billId;
 
-  /// Set only when [type] is [EntryType.loanPayment].
+  /// Set only when [type] needs a loan ([EntryType.needsLoan]).
   final int? loanId;
 
   /// File name inside the receipts folder, or null.

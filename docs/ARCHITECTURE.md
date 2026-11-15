@@ -226,3 +226,43 @@ Leave clean seams (the `domain/` layer) but write no code for these.
 - Unit tests cover §3 and §5 including: empty month, negative cash, loan
   overpayment clamped at 0, bill paid twice in a month, entries on month
   boundaries, parse/format round trips.
+
+## 12. v1.1 changes (loan plans, money received, contextual add button)
+
+These amend the sections above; where they disagree, this section wins.
+
+**New entry type `loan_received`** ("Loan received"). Linked to a loan via
+`loan_id`. Raises cash but is not income:
+`cash(M) = income(M) + loanReceived(M) − spent(M) − loanPaid(M)`.
+It is created only by the new-loan form (toggle "Add this money to cash",
+on by default, off for loans taken before using the app), dated today, for
+the loan's full amount. It is not offered in the quick add type chips, but
+an existing one can still be edited. Deleting a loan with no payments also
+deletes its `loan_received` entries (one transaction).
+
+**Loan repayment plan.** Schema v2 adds to `loans`:
+`plan TEXT NOT NULL DEFAULT 'full'` (`full` | `monthly`),
+`months INTEGER NOT NULL DEFAULT 1`, `start_month TEXT` (`yyyy-MM`).
+Upgrading from v1 sets `start_month` to the month the loan was created.
+- `full`: one payment of everything, due in `start_month`.
+- `monthly`: `months` payments from `start_month`. Installment =
+  `ceil(principal / months)` centavos; the plan never expects more than the
+  principal.
+- **Due in month M** = (installments expected by the end of M, capped at
+  the principal) − (payments dated up to the end of M), clamped to
+  `[0, balance]`. Nothing is due before `start_month`; a missed month rolls
+  into the next; paying ahead covers later months.
+
+**Dashboard.** "Bills left" becomes **"Left to pay"**: unpaid bills plus loan
+amounts due this month. The breakdown gains "Loans received".
+
+**Loans tab.** Has the month switcher. Each card shows the plan
+("₱X a month · N of M paid · Dec 2026 to May 2027" or "Pay in full by
+Nov 2026"), paid of total, and what's due in the selected month. "Pay"
+prefills the amount due (or the balance when nothing is due).
+
+**Add button follows the tab.** Dashboard and Entries: "Add entry". Bills:
+"Add bill". Loans: "Add loan" (opens the full-screen loan form).
+
+**Backup.** Exports `version: 2` (loans carry plan fields). Restores version
+1 or 2; version-1 loans read as pay in full.

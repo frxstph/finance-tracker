@@ -12,7 +12,11 @@ import '../domain/models.dart';
 import 'photos.dart';
 import 'repository.dart';
 
-const int backupVersion = 1;
+const int backupVersion = 2;
+
+/// Backup versions this app can restore. Version 1 has no loan plans; its
+/// loans read as "pay in full".
+const Set<int> _readableVersions = <int>{1, 2};
 const String _dataFileName = 'data.json';
 const String _receiptsPrefix = 'receipts/';
 
@@ -199,7 +203,8 @@ class BackupService {
 
   BackupContents _parseData(
       Map<String, dynamic> data, Map<String, List<int>> receipts) {
-    if (data['version'] != backupVersion) {
+    final version = data['version'];
+    if (version is! int || !_readableVersions.contains(version)) {
       throw FormatException('Unsupported backup version: ${data['version']}.');
     }
     final bills = _parseRows<Bill>(data, 'bills', Bill.fromMap);
@@ -235,7 +240,10 @@ class BackupService {
       if (b.amount < 0) throw const FormatException('A bill has a bad amount.');
     }
     for (final l in loans) {
-      if (l.principal < 0 || !isValidDateKey(l.created)) {
+      if (l.principal < 0 ||
+          !isValidDateKey(l.created) ||
+          l.months < 1 ||
+          !isValidMonthKey(l.startMonth)) {
         throw const FormatException('A loan has bad data.');
       }
     }
@@ -246,8 +254,8 @@ class BackupService {
       if (e.type == EntryType.bill && !billIds.contains(e.billId)) {
         throw const FormatException('A bill payment points to a missing bill.');
       }
-      if (e.type == EntryType.loanPayment && !loanIds.contains(e.loanId)) {
-        throw const FormatException('A loan payment points to a missing loan.');
+      if (e.type.needsLoan && !loanIds.contains(e.loanId)) {
+        throw const FormatException('A loan entry points to a missing loan.');
       }
       if (e.billId != null && !billIds.contains(e.billId)) {
         throw const FormatException('An entry points to a missing bill.');

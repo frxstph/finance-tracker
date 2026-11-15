@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../domain/models.dart';
 import '../theme.dart';
 
-/// Five choice chips, one per entry type.
+/// One choice chip per type you can pick by hand. "Loan received" only
+/// shows when editing an entry of that type.
 class TypeSelector extends StatelessWidget {
   const TypeSelector({super.key, required this.value, required this.onChanged});
 
@@ -17,12 +18,13 @@ class TypeSelector extends StatelessWidget {
       runSpacing: 8,
       children: <Widget>[
         for (final t in EntryType.values)
-          ChoiceChip(
-            avatar: Icon(iconForType(t), size: 18),
-            label: Text(t.label),
-            selected: t == value,
-            onSelected: (_) => onChanged(t),
-          ),
+          if (t.userSelectable || t == value)
+            ChoiceChip(
+              avatar: Icon(iconForType(t), size: 18),
+              label: Text(t.label),
+              selected: t == value,
+              onSelected: (_) => onChanged(t),
+            ),
       ],
     );
   }

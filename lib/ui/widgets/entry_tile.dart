@@ -16,7 +16,7 @@ class EntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final theme = Theme.of(context);
-    final isIncome = entry.type == EntryType.income;
+    final isIncome = entry.type.isMoneyIn;
     final amountText =
         isIncome ? '+${formatPeso(entry.amount)}' : formatPeso(entry.amount);
     return ListTile(

@@ -66,6 +66,10 @@ class AppState extends ChangeNotifier {
   int loanPaid(Loan loan) => loan.id == null ? 0 : (_loanTotals[loan.id] ?? 0);
   int loanBalanceOf(Loan loan) => loanBalance(loan, _loanTotals);
 
+  /// Still due on [loan] in the selected month.
+  int loanDueOf(Loan loan) =>
+      loan.id == null ? 0 : (_summary.loanDues[loan.id] ?? 0);
+
   Bill? billById(int? id) {
     if (id == null) return null;
     for (final b in _bills) {
@@ -97,7 +101,7 @@ class AppState extends ChangeNotifier {
       final b = billById(e.billId);
       if (b != null) return b.name;
     }
-    if (e.type == EntryType.loanPayment) {
+    if (e.type.needsLoan) {
       final l = loanById(e.loanId);
       if (l != null) return l.name;
     }
@@ -168,7 +172,7 @@ class AppState extends ChangeNotifier {
       note: entry.note.trim(),
       date: entry.date,
       billId: entry.type == EntryType.bill ? entry.billId : null,
-      loanId: entry.type == EntryType.loanPayment ? entry.loanId : null,
+      loanId: entry.type.needsLoan ? entry.loanId : null,
       photo: photo,
       createdAt: entry.createdAt,
     );
@@ -239,24 +243,46 @@ class AppState extends ChangeNotifier {
 
   // Loans
 
-  Future<void> saveLoan(Loan loan) async {
+  /// Inserts or updates [loan]. For a new loan with [addToCash], a "loan
+  /// received" entry for the full amount is added today, so the money shows
+  /// in cash on hand.
+  Future<void> saveLoan(Loan loan, {bool addToCash = false}) async {
     if (loan.id == null) {
-      await _repo.insertLoan(loan);
+      final Entry? received = addToCash
+          ? Entry(
+              type: EntryType.loanReceived,
+              amount: loan.principal,
+              date: todayKey(),
+              createdAt: DateTime.now().toIso8601String(),
+            )
+          : null;
+      await _repo.insertLoanWithReceipt(loan, received: received);
+      await _reloadLoans();
+      if (received != null) await _reloadEntries();
     } else {
       await _repo.updateLoan(loan);
+      await _reloadLoans();
     }
-    await _reloadLoans();
   }
 
-  /// Deletes a loan that has no payments. Throws [ActionNotAllowed] otherwise.
+  /// Deletes a loan that has no payments, along with the money-received
+  /// entry made when it was added. Throws [ActionNotAllowed] otherwise.
   Future<void> deleteLoan(Loan loan) async {
     final id = loan.id;
     if (id == null) return;
-    if (await _repo.loanHasEntries(id)) {
+    if (await _repo.loanHasPayments(id)) {
       throw const ActionNotAllowed(
           'This loan has payments, so it can’t be deleted.');
     }
-    await _repo.deleteLoan(id);
+    final photos = <String>[
+      for (final e in _entries)
+        if (e.loanId == id && e.photo != null) e.photo!,
+    ];
+    await _repo.deleteLoanAndReceipts(id);
+    for (final name in photos) {
+      await _photos.delete(name);
+    }
+    _entries = await _repo.entries();
     await _reloadLoans();
   }
 

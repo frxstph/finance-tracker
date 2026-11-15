@@ -21,9 +21,11 @@ const Bill power = Bill(id: 2, name: 'Bill B', amount: 120000);
 const Bill oldBill =
     Bill(id: 3, name: 'Bill C', amount: 99900, active: false);
 const Loan loanX =
-    Loan(id: 10, name: 'Loan X', principal: 1000000, created: '2026-01-05');
+    Loan(id: 10, name: 'Loan X', principal: 1000000, created: '2026-01-05',
+        startMonth: '2026-01');
 const Loan loanY =
-    Loan(id: 11, name: 'Loan Y', principal: 200000, created: '2026-02-01');
+    Loan(id: 11, name: 'Loan Y', principal: 200000, created: '2026-02-01',
+        startMonth: '2026-02');
 
 void main() {
   test('empty month is all zeros, bills all left', () {

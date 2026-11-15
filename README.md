@@ -7,23 +7,30 @@ you stand this month.
 ## Features
 
 - **Dashboard** with a month switcher and four numbers: cash on hand, still
-  owed, bills left (count and amount) and net position, plus a breakdown by
-  type.
+  owed, left to pay this month (unpaid bills plus loan amounts due) and net
+  position, plus a breakdown by type.
 - **Quick add** for income, bills, one-time spends, daily spends and loan
   payments. A plain daily spend takes three taps: Add, type the amount, Save.
 - **Receipt photos** from the camera or gallery, stored on the phone.
 - **Bills** with a paid/unpaid state per month and a one-tap "Pay".
-- **Loans** with paid so far, balance and a progress bar.
+- **Loans** with a repayment plan (pay in full by a month, or monthly over a
+  number of months), what's due this month, paid so far and a progress bar.
+  Adding a new loan can put the money into this month's cash.
+- **An add button that follows the tab**: add an entry, a bill or a loan.
 - **Backup and restore** as a single zip you can keep in Drive or Files.
 - Light and dark themes that follow the phone.
 
 How the numbers work:
 
-- Cash on hand = income − spending − loan payments for the selected month.
+- Cash on hand = income + loans received − spending − loan payments for the
+  selected month.
   Every month starts from ₱0 (no carry-over).
 - Still owed = what is left on every loan, across all time.
 - Net position = cash on hand − still owed.
-- Loan payments are never counted as spending.
+- Loan payments are never counted as spending, and money received from a
+  loan is never counted as income.
+- A monthly loan expects one installment a month; a missed month rolls into
+  the next, and paying ahead covers later months.
 
 ## Screenshots
 
@@ -34,7 +41,7 @@ _Coming soon._
 There is no local build. Every push to `main` runs
 [`.github/workflows/build.yml`](.github/workflows/build.yml) on GitHub Actions:
 
-1. Installs Java 17 and Flutter (stable).
+1. Installs Java 21 and Flutter (stable).
 2. Generates the `android/` folder with `flutter create` (it is not kept in
    the repo) and sets the app name to "Finance Tracker".
 3. Installs the fixed signing key from `ci/debug.keystore`, so every build has

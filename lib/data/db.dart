@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-const int schemaVersion = 1;
+const int schemaVersion = 2;
 const String databaseFileName = 'finance.db';
 
 const List<String> _schemaV1 = <String>[
@@ -34,6 +34,16 @@ CREATE TABLE entries (
   'CREATE INDEX idx_entries_date ON entries(date)',
 ];
 
+/// Version 2: loans get a repayment plan. Old loans become "pay in full",
+/// due in the month they were added.
+const List<String> _upgradeToV2 = <String>[
+  "ALTER TABLE loans ADD COLUMN plan TEXT NOT NULL DEFAULT 'full'",
+  'ALTER TABLE loans ADD COLUMN months INTEGER NOT NULL DEFAULT 1',
+  'ALTER TABLE loans ADD COLUMN start_month TEXT',
+  'UPDATE loans SET start_month = substr(created, 1, 7) '
+      'WHERE start_month IS NULL',
+];
+
 /// Opens (and creates on first run) the app database.
 Future<Database> openAppDatabase() async {
   final dir = await getDatabasesPath();
@@ -47,7 +57,16 @@ Future<Database> openAppDatabase() async {
       for (final sql in _schemaV1) {
         await db.execute(sql);
       }
+      for (final sql in _upgradeToV2) {
+        await db.execute(sql);
+      }
     },
-    // Future schema versions add an onUpgrade here.
+    onUpgrade: (Database db, int oldVersion, int newVersion) async {
+      if (oldVersion < 2) {
+        for (final sql in _upgradeToV2) {
+          await db.execute(sql);
+        }
+      }
+    },
   );
 }

@@ -8,7 +8,7 @@ import '../domain/models.dart';
 const Color seedColor = Color(0xFF2E7D5B);
 
 /// App version shown in settings. Keep in sync with pubspec.yaml.
-const String appVersion = '1.0.0';
+const String appVersion = '1.1.0';
 
 ThemeData buildTheme(Brightness brightness) {
   final scheme =
@@ -43,5 +43,7 @@ IconData iconForType(EntryType type) {
       return Icons.local_cafe_outlined;
     case EntryType.loanPayment:
       return Icons.account_balance_outlined;
+    case EntryType.loanReceived:
+      return Icons.call_received;
   }
 }

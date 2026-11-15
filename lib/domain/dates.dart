@@ -72,6 +72,34 @@ String monthKeyOfDate(String date) => date.substring(0, 7);
 bool isInMonth(String date, String month) =>
     date.length == 10 && date.startsWith('$month-');
 
+final RegExp _monthPattern = RegExp(r'^(\d{4})-(\d{2})$');
+
+/// True when [s] is a real month in "yyyy-MM" form.
+bool isValidMonthKey(String s) {
+  final m = _monthPattern.firstMatch(s);
+  if (m == null) return false;
+  final mo = int.parse(m.group(2)!);
+  return mo >= 1 && mo <= 12;
+}
+
+/// Months since year 0 for a "yyyy-MM" key, so two keys can be subtracted.
+int monthIndex(String month) =>
+    int.parse(month.substring(0, 4)) * 12 + int.parse(month.substring(5, 7)) - 1;
+
+/// Number of months from [from] to [to] ("yyyy-MM"); negative when [to] is
+/// earlier.
+int monthsBetween(String from, String to) => monthIndex(to) - monthIndex(from);
+
+/// First day of the month for a "yyyy-MM" key.
+DateTime parseMonthKey(String month) =>
+    DateTime(int.parse(month.substring(0, 4)), int.parse(month.substring(5, 7)), 1);
+
+/// "Nov 2026" for a "yyyy-MM" key.
+String shortMonthLabel(String month) {
+  final d = parseMonthKey(month);
+  return '${_monthNames[d.month - 1].substring(0, 3)} ${d.year}';
+}
+
 /// First day of the month containing [d].
 DateTime startOfMonth(DateTime d) => DateTime(d.year, d.month, 1);
 

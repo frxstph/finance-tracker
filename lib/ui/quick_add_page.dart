@@ -120,7 +120,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
     String? pickError;
     if (_type == EntryType.bill && _billId == null) {
       pickError = 'Choose a bill';
-    } else if (_type == EntryType.loanPayment && _loanId == null) {
+    } else if (_type.needsLoan && _loanId == null) {
       pickError = 'Choose a loan';
     }
     setState(() {
@@ -254,6 +254,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
             ),
         ];
       case EntryType.loanPayment:
+      case EntryType.loanReceived:
         final loanChoices = <int, String>{
           for (final l in state.loans)
             if (l.id != null) l.id!: l.name,

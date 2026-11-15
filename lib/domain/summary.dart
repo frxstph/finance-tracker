@@ -6,17 +6,22 @@ class MonthSummary {
   const MonthSummary({
     required this.month,
     required this.income,
+    required this.loanReceived,
     required this.spent,
     required this.loanPaid,
     required this.stillOwed,
     required this.unpaidBills,
     required this.paidBillIds,
     required this.breakdown,
+    required this.loanDues,
   });
 
   /// "yyyy-MM"
   final String month;
   final int income;
+
+  /// Money received from new loans this month. Raises cash; not income.
+  final int loanReceived;
 
   /// Bills + one-time + daily. Never includes loan payments.
   final int spent;
@@ -34,8 +39,20 @@ class MonthSummary {
   /// Total per entry type for [month]. Every type is present.
   final Map<EntryType, int> breakdown;
 
+  /// Loan id -> amount still due on it this month. Only loans with
+  /// something due are present.
+  final Map<int, int> loanDues;
+
   /// Each month starts at ₱0; no carry-over. May be negative.
-  int get cash => income - spent - loanPaid;
+  int get cash => income + loanReceived - spent - loanPaid;
+
+  int get loanDueCount => loanDues.length;
+
+  int get loanDueTotal =>
+      loanDues.values.fold<int>(0, (sum, v) => sum + v);
+
+  /// Unpaid bills plus loan payments due, for this month.
+  int get leftToPayAmount => billsLeftAmount + loanDueTotal;
 
   int get billsLeftCount => unpaidBills.length;
 
@@ -71,6 +88,48 @@ int loanBalance(Loan loan, Map<int, int> paymentTotals) {
   return balance < 0 ? 0 : balance;
 }
 
+/// Payments made on [loanId] dated in or before [month] ("yyyy-MM").
+int _paidThrough(Iterable<Entry> entries, int loanId, String month) {
+  var total = 0;
+  for (final e in entries) {
+    if (e.type != EntryType.loanPayment || e.loanId != loanId) continue;
+    if (e.date.length < 7) continue;
+    if (e.date.substring(0, 7).compareTo(month) <= 0) total += e.amount;
+  }
+  return total;
+}
+
+/// What is still due on [loan] in [month] ("yyyy-MM").
+///
+/// The plan expects one installment per month from the start month (a full
+/// plan is one installment of everything). The amount due is what the plan
+/// expects by the end of [month], minus every payment dated up to then, so
+/// a missed month rolls into the next one. Never more than the loan's
+/// remaining balance, never below 0. Nothing is due before the start month.
+int loanDueInMonth(Loan loan, String month, Iterable<Entry> entries,
+    Map<int, int> paymentTotals) {
+  final id = loan.id;
+  if (id == null) return 0;
+  final elapsed = monthsBetween(loan.startMonth, month);
+  if (elapsed < 0) return 0;
+  final n = loan.paymentCount;
+  final count = elapsed + 1 < n ? elapsed + 1 : n;
+  final perMonth = loan.installment * count;
+  final expected = perMonth < loan.principal ? perMonth : loan.principal;
+  final due = expected - _paidThrough(entries, id, month);
+  final balance = loanBalance(loan, paymentTotals);
+  if (due <= 0 || balance <= 0) return 0;
+  return due < balance ? due : balance;
+}
+
+/// How many of the plan's payments the money paid so far covers.
+int paymentsCovered(Loan loan, int paid) {
+  final per = loan.installment;
+  if (per <= 0) return loan.paymentCount;
+  final n = paid ~/ per;
+  return n < loan.paymentCount ? n : loan.paymentCount;
+}
+
 /// Computes the summary for [month] ("yyyy-MM").
 ///
 /// [entries] may contain entries from any month; month totals only use those
@@ -95,6 +154,7 @@ MonthSummary computeSummary({
   }
 
   final income = breakdown[EntryType.income]!;
+  final loanReceived = breakdown[EntryType.loanReceived]!;
   final spent = breakdown[EntryType.bill]! +
       breakdown[EntryType.oneTime]! +
       breakdown[EntryType.daily]!;
@@ -106,6 +166,12 @@ MonthSummary computeSummary({
     stillOwed += loanBalance(loan, totals);
   }
 
+  final loanDues = <int, int>{};
+  for (final loan in loans) {
+    final due = loanDueInMonth(loan, month, entries, totals);
+    if (due > 0 && loan.id != null) loanDues[loan.id!] = due;
+  }
+
   final unpaid = <Bill>[
     for (final b in bills)
       if (b.active && !(b.id != null && paidBillIds.contains(b.id))) b,
@@ -114,11 +180,13 @@ MonthSummary computeSummary({
   return MonthSummary(
     month: month,
     income: income,
+    loanReceived: loanReceived,
     spent: spent,
     loanPaid: loanPaid,
     stillOwed: stillOwed,
     unpaidBills: unpaid,
     paidBillIds: paidBillIds,
     breakdown: breakdown,
+    loanDues: loanDues,
   );
 }

@@ -18,9 +18,13 @@ class DashboardPage extends StatelessWidget {
     }
     final s = state.summary;
     final danger = Theme.of(context).colorScheme.error;
-    final billsDetail = s.billsLeftCount == 0
-        ? 'All paid'
-        : '${s.billsLeftCount} ${s.billsLeftCount == 1 ? 'bill' : 'bills'} unpaid';
+    final leftParts = <String>[
+      if (s.billsLeftCount > 0)
+        '${s.billsLeftCount} ${s.billsLeftCount == 1 ? 'bill' : 'bills'}',
+      if (s.loanDueCount > 0)
+        '${s.loanDueCount} ${s.loanDueCount == 1 ? 'loan' : 'loans'} due',
+    ];
+    final leftDetail = leftParts.isEmpty ? 'All paid' : leftParts.join(', ');
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 96),
@@ -57,10 +61,10 @@ class DashboardPage extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: StatCard(
-                      label: 'Bills left',
+                      label: 'Left to pay',
                       icon: Icons.receipt_long_outlined,
-                      value: formatPeso(s.billsLeftAmount),
-                      detail: billsDetail,
+                      value: formatPeso(s.leftToPayAmount),
+                      detail: leftDetail,
                     ),
                   ),
                   Expanded(
@@ -89,6 +93,7 @@ class _BreakdownCard extends StatelessWidget {
 
   static const List<EntryType> _order = <EntryType>[
     EntryType.income,
+    EntryType.loanReceived,
     EntryType.bill,
     EntryType.oneTime,
     EntryType.daily,
@@ -107,6 +112,8 @@ class _BreakdownCard extends StatelessWidget {
         return 'Daily';
       case EntryType.loanPayment:
         return 'Loan payments';
+      case EntryType.loanReceived:
+        return 'Loans received';
     }
   }
 

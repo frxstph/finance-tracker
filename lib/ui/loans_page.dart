@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../domain/dates.dart';
 import '../domain/models.dart';
 import '../domain/money.dart';
+import '../domain/summary.dart';
 import '../state/app_state.dart';
+import 'loan_form_page.dart';
 import 'quick_add_page.dart';
 import 'theme.dart';
 import 'widgets/dialogs.dart';
 import 'widgets/empty_state.dart';
-import 'widgets/name_amount_dialog.dart';
+import 'widgets/month_switcher.dart';
 
 enum _LoanAction { edit, delete }
 
@@ -24,17 +27,20 @@ class LoansPage extends StatelessWidget {
         icon: Icons.account_balance_outlined,
         message: 'Track what you owe and watch it go down.',
         actionLabel: 'Add your first loan',
-        onAction: () => showNewLoanDialog(context),
+        onAction: () => showNewLoanForm(context),
       );
     }
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
       children: <Widget>[
+        const MonthSwitcher(),
         for (final l in loans)
           _LoanCard(
             loan: l,
             paid: state.loanPaid(l),
             balance: state.loanBalanceOf(l),
+            due: state.loanDueOf(l),
+            month: state.monthKeyValue,
           ),
       ],
     );
@@ -46,11 +52,40 @@ class _LoanCard extends StatelessWidget {
     required this.loan,
     required this.paid,
     required this.balance,
+    required this.due,
+    required this.month,
   });
 
   final Loan loan;
   final int paid;
   final int balance;
+
+  /// Still due in the selected month.
+  final int due;
+
+  /// Selected month, "yyyy-MM".
+  final String month;
+
+  /// "₱5,000 a month · 2 of 6 paid · Dec 2026 to May 2027"
+  String _planLine() {
+    if (loan.plan == LoanPlan.full) {
+      return 'Pay in full by ${shortMonthLabel(loan.startMonth)}';
+    }
+    final n = loan.paymentCount;
+    final last = monthKey(addMonths(parseMonthKey(loan.startMonth), n - 1));
+    return '${formatPeso(loan.installment)} a month · '
+        '${paymentsCovered(loan, paid)} of $n paid · '
+        '${shortMonthLabel(loan.startMonth)} to ${shortMonthLabel(last)}';
+  }
+
+  /// "Due this month ₱5,000", or why nothing is due.
+  String _dueLine() {
+    if (due > 0) return 'Due this month ${formatPeso(due)}';
+    if (monthsBetween(loan.startMonth, month) < 0) {
+      return 'Starts ${shortMonthLabel(loan.startMonth)}';
+    }
+    return 'Nothing due this month';
+  }
 
   void _pay(BuildContext context) {
     Navigator.of(context).push(
@@ -59,6 +94,7 @@ class _LoanCard extends StatelessWidget {
         builder: (_) => QuickAddPage(
           initialType: EntryType.loanPayment,
           initialLoanId: loan.id,
+          initialAmount: due > 0 ? due : balance,
         ),
       ),
     );
@@ -68,12 +104,13 @@ class _LoanCard extends StatelessWidget {
     final state = AppScope.read(context);
     switch (action) {
       case _LoanAction.edit:
-        await showEditLoanDialog(context, loan);
+        await showEditLoanForm(context, loan);
       case _LoanAction.delete:
         final ok = await confirm(
           context,
           title: 'Delete ${loan.name}?',
-          message: 'This loan will be removed.',
+          message: 'This loan and the money received for it will be '
+              'removed.',
           confirmLabel: 'Delete',
           destructive: true,
         );
@@ -138,10 +175,18 @@ class _LoanCard extends StatelessWidget {
               child: LinearProgressIndicator(value: progress, minHeight: 8),
             ),
             const SizedBox(height: 8),
+            Text(_planLine(), style: numbers),
             Text(
               'Paid ${formatPeso(paid)} of ${formatPeso(loan.principal)}',
               style: numbers,
             ),
+            if (!done)
+              Text(
+                _dueLine(),
+                style: numbers?.copyWith(
+                  color: due > 0 ? theme.colorScheme.primary : null,
+                ),
+              ),
             Text(
               done ? 'Paid off' : 'Balance ${formatPeso(balance)}',
               style: numbers?.copyWith(fontWeight: FontWeight.w600),

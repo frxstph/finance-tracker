@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'bills_page.dart';
 import 'dashboard_page.dart';
 import 'entries_page.dart';
+import 'loan_form_page.dart';
 import 'loans_page.dart';
 import 'quick_add_page.dart';
 import 'settings_page.dart';
 import 'widgets/name_amount_dialog.dart';
 
-/// Bottom navigation with four tabs and an "Add" button on every tab.
+/// Bottom navigation with four tabs. The add button follows the tab: entries
+/// on Dashboard and Entries, bills on Bills, loans on Loans.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -42,33 +44,42 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   List<Widget> _actions() {
+    if (_index != 0) return const <Widget>[];
+    return <Widget>[
+      IconButton(
+        tooltip: 'Settings',
+        icon: const Icon(Icons.settings_outlined),
+        onPressed: _openSettings,
+      ),
+    ];
+  }
+
+  Widget _addButton() {
     switch (_index) {
-      case 0:
-        return <Widget>[
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _openSettings,
-          ),
-        ];
       case 2:
-        return <Widget>[
-          IconButton(
-            tooltip: 'New bill',
-            icon: const Icon(Icons.playlist_add),
-            onPressed: () => showNewBillDialog(context),
-          ),
-        ];
+        return FloatingActionButton.extended(
+          key: const ValueKey<String>('add-bill'),
+          heroTag: 'add-bill',
+          onPressed: () => showNewBillDialog(context),
+          icon: const Icon(Icons.add),
+          label: const Text('Add bill'),
+        );
       case 3:
-        return <Widget>[
-          IconButton(
-            tooltip: 'New loan',
-            icon: const Icon(Icons.playlist_add),
-            onPressed: () => showNewLoanDialog(context),
-          ),
-        ];
+        return FloatingActionButton.extended(
+          key: const ValueKey<String>('add-loan'),
+          heroTag: 'add-loan',
+          onPressed: () => showNewLoanForm(context),
+          icon: const Icon(Icons.add),
+          label: const Text('Add loan'),
+        );
       default:
-        return const <Widget>[];
+        return FloatingActionButton.extended(
+          key: const ValueKey<String>('add-entry'),
+          heroTag: 'add-entry',
+          onPressed: _openQuickAdd,
+          icon: const Icon(Icons.add),
+          label: const Text('Add entry'),
+        );
     }
   }
 
@@ -88,11 +99,7 @@ class _HomeShellState extends State<HomeShell> {
           LoansPage(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openQuickAdd,
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
-      ),
+      floatingActionButton: _addButton(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),

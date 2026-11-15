@@ -42,24 +42,44 @@ class Repository {
     return rows.map(Loan.fromMap).toList();
   }
 
-  Future<int> insertLoan(Loan loan) => _db.insert('loans', loan.toMap());
-
   Future<void> updateLoan(Loan loan) async {
     await _db.update('loans', loan.toMap(),
         where: 'id = ?', whereArgs: <Object?>[loan.id]);
   }
 
-  Future<void> deleteLoan(int id) async {
-    await _db.delete('loans', where: 'id = ?', whereArgs: <Object?>[id]);
+  /// Adds [loan] and, when [received] is given, the "loan received" entry
+  /// for it, in one transaction. Returns the new loan id.
+  Future<int> insertLoanWithReceipt(Loan loan, {Entry? received}) {
+    return _db.transaction<int>((Transaction txn) async {
+      final id = await txn.insert('loans', loan.toMap());
+      if (received != null) {
+        final map = received.toMap();
+        map['loan_id'] = id;
+        await txn.insert('entries', map);
+      }
+      return id;
+    });
   }
 
-  Future<bool> loanHasEntries(int id) async {
+  /// True when the loan has at least one payment (not counting the money
+  /// received when it was added).
+  Future<bool> loanHasPayments(int id) async {
     final rows = await _db.query('entries',
         columns: <String>['id'],
-        where: 'loan_id = ?',
-        whereArgs: <Object?>[id],
+        where: 'loan_id = ? AND type = ?',
+        whereArgs: <Object?>[id, EntryType.loanPayment.dbValue],
         limit: 1);
     return rows.isNotEmpty;
+  }
+
+  /// Deletes the loan and its "loan received" entries in one transaction.
+  Future<void> deleteLoanAndReceipts(int id) async {
+    await _db.transaction((Transaction txn) async {
+      await txn.delete('entries',
+          where: 'loan_id = ? AND type = ?',
+          whereArgs: <Object?>[id, EntryType.loanReceived.dbValue]);
+      await txn.delete('loans', where: 'id = ?', whereArgs: <Object?>[id]);
+    });
   }
 
   // Entries

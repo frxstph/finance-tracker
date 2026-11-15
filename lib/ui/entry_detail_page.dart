@@ -57,11 +57,11 @@ class EntryDetailPage extends StatelessWidget {
       );
     }
     final theme = Theme.of(context);
-    final isIncome = entry.type == EntryType.income;
+    final isIncome = entry.type.isMoneyIn;
     final photo = state.photoFile(entry);
     final linked = entry.type == EntryType.bill
         ? state.billById(entry.billId)?.name
-        : entry.type == EntryType.loanPayment
+        : entry.type.needsLoan
             ? state.loanById(entry.loanId)?.name
             : null;
 
