@@ -278,8 +278,11 @@ class AppState extends ChangeNotifier {
 
   /// Replaces all data with [contents], then reloads.
   Future<void> restoreBackup(BackupContents contents) async {
-    await _backup.restore(contents);
-    await load();
+    try {
+      await _backup.restore(contents);
+    } finally {
+      await load();
+    }
   }
 }
 

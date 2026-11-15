@@ -34,6 +34,15 @@ class BackupContents {
   final Map<String, List<int>> receipts;
 }
 
+/// Thrown when the data was restored but the receipt photos could not be
+/// swapped in. The entries, bills and loans are already the backup's.
+class RestorePhotosException implements Exception {
+  const RestorePhotosException();
+
+  @override
+  String toString() => 'Receipt photos could not be replaced';
+}
+
 class BackupService {
   BackupService(this._repo, this._photos);
 
@@ -289,10 +298,14 @@ class BackupService {
     }
 
     // The database now holds the backup. Swap the receipts folder.
-    if (await live.exists()) {
-      await live.rename(old.path);
+    try {
+      if (await live.exists()) {
+        await live.rename(old.path);
+      }
+      await staging.rename(live.path);
+    } on FileSystemException {
+      throw const RestorePhotosException();
     }
-    await staging.rename(live.path);
     await _deleteQuietly(old);
   }
 

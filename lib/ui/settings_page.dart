@@ -78,6 +78,11 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       await state.restoreBackup(contents);
       if (mounted) showMessage(context, 'Backup restored.');
+    } on RestorePhotosException {
+      if (mounted) {
+        showMessage(context,
+            'Data restored, but the receipt photos could not be replaced.');
+      }
     } catch (e) {
       if (mounted) {
         showMessage(context, 'Restore failed. Nothing was changed. ($e)');
