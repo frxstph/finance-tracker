@@ -295,3 +295,13 @@ prefills the amount due (or the balance when nothing is due).
   Dec 2026"), the amount in large type with a "Change" link, balance after
   it, "Add photo of payment", date paid (today), and a full-width "Confirm
   payment" button.
+
+## 15. v1.4 changes (bill pay screen)
+
+- One shared `ConfirmPaymentPage` (lib/ui/confirm_payment_page.dart) backs
+  every Pay button; `lib/ui/pay_pages.dart` fills it for bills and loans.
+- **Bills' Pay** now opens it: "Monthly bill · November 2026", the bill's
+  usual amount in large type ("Change" to edit), "Add photo of receipt",
+  date paid, "Confirm payment". The date defaults to today when the selected
+  month is the current one, otherwise the 1st of the selected month, so the
+  payment marks that month's bill as paid.

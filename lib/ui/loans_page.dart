@@ -8,7 +8,7 @@ import '../domain/money.dart';
 import '../domain/summary.dart';
 import '../state/app_state.dart';
 import 'loan_form_page.dart';
-import 'pay_loan_page.dart';
+import 'pay_pages.dart';
 import 'theme.dart';
 import 'widgets/dialogs.dart';
 import 'widgets/empty_state.dart';
@@ -96,12 +96,7 @@ class _LoanCard extends StatelessWidget {
   }
 
   void _pay(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => PayLoanPage(loan: loan),
-      ),
-    );
+    showPayLoan(context, loan);
   }
 
   Future<void> _onAction(BuildContext context, _LoanAction action) async {

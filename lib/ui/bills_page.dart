@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../domain/money.dart';
 import '../state/app_state.dart';
-import 'quick_add_page.dart';
+import 'pay_pages.dart';
 import 'theme.dart';
 import 'widgets/dialogs.dart';
 import 'widgets/empty_state.dart';
@@ -72,16 +72,7 @@ class _BillTile extends StatelessWidget {
   final bool paid;
 
   void _pay(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => QuickAddPage(
-          initialType: EntryType.bill,
-          initialBillId: bill.id,
-          initialAmount: bill.amount,
-        ),
-      ),
-    );
+    showPayBill(context, bill);
   }
 
   Future<void> _onAction(BuildContext context, _BillAction action) async {
