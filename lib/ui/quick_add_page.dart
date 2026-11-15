@@ -48,6 +48,11 @@ class _QuickAddPageState extends State<QuickAddPage> {
   String? _pickError;
   bool _saving = false;
 
+  /// The amount text the form filled in by itself (from a bill or loan).
+  /// While the field still shows it, picking another bill or loan replaces
+  /// it; once you type your own amount, it's left alone.
+  String? _autoAmountText;
+
   @override
   void initState() {
     super.initState();
@@ -64,8 +69,70 @@ class _QuickAddPageState extends State<QuickAddPage> {
       _billId = widget.initialBillId;
       _loanId = widget.initialLoanId;
       final a = widget.initialAmount;
-      if (a != null && a > 0) _amount.text = centavosToInput(a);
+      if (a != null && a > 0) {
+        _amount.text = centavosToInput(a);
+        _autoAmountText = _amount.text;
+      }
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // A loan payment with no loan chosen yet: pick the loan when there is
+    // only one left to pay, and fill in what's due.
+    if (widget.existing == null &&
+        _type == EntryType.loanPayment &&
+        _loanId == null) {
+      _autoPickLoan(AppScope.read(context));
+    }
+  }
+
+  /// Opened with the amount already known (a Pay button) or editing: keep
+  /// the keyboard closed so the photo button is in view.
+  bool get _focusAmount =>
+      widget.existing == null && widget.initialAmount == null;
+
+  bool get _amountIsAuto =>
+      _amount.text.trim().isEmpty || _amount.text == _autoAmountText;
+
+  void _fillAmount(int centavos) {
+    if (centavos <= 0 || !_amountIsAuto) return;
+    _amount.text = centavosToInput(centavos);
+    _autoAmountText = _amount.text;
+    _amountError = null;
+  }
+
+  /// What to pay on [loan] now: the amount due this month, else the whole
+  /// balance.
+  int _suggestedLoanAmount(AppState state, Loan loan) {
+    final due = state.loanDueOf(loan);
+    return due > 0 ? due : state.loanBalanceOf(loan);
+  }
+
+  List<Loan> _openLoans(AppState state) => <Loan>[
+        for (final l in state.loans)
+          if (l.id != null &&
+              (state.loanBalanceOf(l) > 0 || l.id == _loanId))
+            l,
+      ];
+
+  void _autoPickLoan(AppState state) {
+    final open = _openLoans(state);
+    if (open.length != 1) return;
+    _loanId = open.single.id;
+    _fillAmount(_suggestedLoanAmount(state, open.single));
+  }
+
+  void _onLoanChosen(AppState state, int? id) {
+    setState(() {
+      _loanId = id;
+      _pickError = null;
+      final loan = state.loanById(id);
+      if (loan != null && _type == EntryType.loanPayment) {
+        _fillAmount(_suggestedLoanAmount(state, loan));
+      }
+    });
   }
 
   @override
@@ -95,9 +162,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
       _billId = id;
       _pickError = null;
       final bill = state.billById(id);
-      if (bill != null && _amount.text.trim().isEmpty) {
-        _amount.text = centavosToInput(bill.amount);
-      }
+      if (bill != null) _fillAmount(bill.amount);
     });
   }
 
@@ -181,7 +246,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
         children: <Widget>[
           AmountField(
             controller: _amount,
-            autofocus: true,
+            autofocus: _focusAmount,
             errorText: _amountError,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _save(),
@@ -192,9 +257,35 @@ class _QuickAddPageState extends State<QuickAddPage> {
             onChanged: (t) => setState(() {
               _type = t;
               _pickError = null;
+              if (t == EntryType.loanPayment && _loanId == null) {
+                _autoPickLoan(state);
+              } else if (t == EntryType.loanPayment) {
+                final loan = state.loanById(_loanId);
+                if (loan != null) {
+                  _fillAmount(_suggestedLoanAmount(state, loan));
+                }
+              } else if (t == EntryType.bill) {
+                final bill = state.billById(_billId);
+                if (bill != null) _fillAmount(bill.amount);
+              }
             }),
           ),
           ..._linkedPicker(state),
+          const SizedBox(height: 16),
+          PhotoSection(
+            file: _previewFile(state),
+            onPicked: (path) {
+              if (!mounted) return;
+              setState(() {
+                _photoChange = PhotoChange.replace;
+                _newPhotoPath = path;
+              });
+            },
+            onRemove: () => setState(() {
+              _photoChange = PhotoChange.remove;
+              _newPhotoPath = null;
+            }),
+          ),
           const SizedBox(height: 16),
           TextField(
             controller: _note,
@@ -211,21 +302,6 @@ class _QuickAddPageState extends State<QuickAddPage> {
             title: Text(dayLabel(_date)),
             subtitle: const Text('Date'),
             onTap: _pickDate,
-          ),
-          const SizedBox(height: 8),
-          PhotoSection(
-            file: _previewFile(state),
-            onPicked: (path) {
-              if (!mounted) return;
-              setState(() {
-                _photoChange = PhotoChange.replace;
-                _newPhotoPath = path;
-              });
-            },
-            onRemove: () => setState(() {
-              _photoChange = PhotoChange.remove;
-              _newPhotoPath = null;
-            }),
           ),
         ],
       ),
@@ -255,14 +331,18 @@ class _QuickAddPageState extends State<QuickAddPage> {
         ];
       case EntryType.loanPayment:
       case EntryType.loanReceived:
+        final paying = _type == EntryType.loanPayment;
         final loanChoices = <int, String>{
-          for (final l in state.loans)
+          for (final l in paying ? _openLoans(state) : state.loans)
             if (l.id != null) l.id!: l.name,
         };
+        final chosen = state.loanById(_loanId);
         return <Widget>[
           const SizedBox(height: 16),
           if (loanChoices.isEmpty)
-            const Text('No loans yet. Add one on the Loans tab.')
+            Text(paying && state.loans.isNotEmpty
+                ? 'All loans are paid off.'
+                : 'No loans yet. Add one on the Loans tab.')
           else
             PickerField(
               label: 'Loan',
@@ -270,16 +350,31 @@ class _QuickAddPageState extends State<QuickAddPage> {
               value: _loanId,
               choices: loanChoices,
               errorText: _pickError,
-              onChanged: (id) => setState(() {
-                _loanId = id;
-                _pickError = null;
-              }),
+              onChanged: (id) => _onLoanChosen(state, id),
             ),
+          if (paying && chosen != null) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              _loanHint(state, chosen),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
         ];
       case EntryType.income:
       case EntryType.oneTime:
       case EntryType.daily:
         return const <Widget>[];
     }
+  }
+
+  /// "Due this month ₱5,000 · Balance ₱20,000"
+  String _loanHint(AppState state, Loan loan) {
+    final due = state.loanDueOf(loan);
+    final balance = state.loanBalanceOf(loan);
+    if (balance <= 0) return 'Paid off';
+    final dueText = due > 0
+        ? 'Due this month ${formatPeso(due)}'
+        : 'Nothing due this month';
+    return '$dueText · Balance ${formatPeso(balance)}';
   }
 }
