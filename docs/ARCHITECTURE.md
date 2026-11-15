@@ -186,7 +186,7 @@ Triggers: push to `main`, and `workflow_dispatch`. `permissions: contents: write
 
 Steps:
 1. `actions/checkout@v4`
-2. `actions/setup-java@v4` (temurin 17)
+2. `actions/setup-java@v4` (temurin 21; Android lint on current Flutter needs Java 21)
 3. `subosito/flutter-action@v2` (channel stable, cache on)
 4. Generate the Android scaffold and copy it in:
    `flutter create --platforms=android --org ph.patrick --project-name finance_tracker /tmp/scaffold`
