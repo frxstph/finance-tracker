@@ -73,7 +73,7 @@ class DashboardPage extends StatelessWidget {
                       icon: Icons.balance_outlined,
                       value: formatPeso(s.netPosition),
                       valueColor: s.netPosition < 0 ? danger : null,
-                      detail: 'Cash minus still owed',
+                      detail: 'Cash minus owed and unpaid bills',
                     ),
                   ),
                 ],

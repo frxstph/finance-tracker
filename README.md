@@ -29,7 +29,8 @@ How the numbers work:
   selected month.
   Every month starts from ₱0 (no carry-over).
 - Still owed = what is left on every loan, across all time.
-- Net position = cash on hand − still owed.
+- Net position = cash on hand − still owed − this month's unpaid bills.
+  (Loan payments due are already inside still owed.)
 - Loan payments are never counted as spending, and money received from a
   loan is never counted as income.
 - A monthly loan expects one installment a month; a missed month rolls into

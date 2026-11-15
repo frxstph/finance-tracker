@@ -156,6 +156,19 @@ void main() {
     expect(suggestedLoanPayment(full, 0, 100000), 100000);
   });
 
+  test('net position subtracts owed loans and unpaid bills, not loan dues '
+      'twice', () {
+    const bill = Bill(id: 7, name: 'Bill', amount: 50000);
+    final s = computeSummary(
+      month: '2026-12',
+      entries: <Entry>[e(EntryType.income, 1000000, '2026-12-01')],
+      bills: const <Bill>[bill],
+      loans: const <Loan>[monthly],
+    );
+    expect(s.loanDueTotal, 100000);
+    expect(s.netPosition, 1000000 - 600000 - 50000);
+  });
+
   test('payments covered counts whole installments', () {
     expect(paymentsCovered(monthly, 0), 0);
     expect(paymentsCovered(monthly, 250000), 2);

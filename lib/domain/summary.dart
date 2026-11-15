@@ -59,7 +59,10 @@ class MonthSummary {
   int get billsLeftAmount =>
       unpaidBills.fold<int>(0, (sum, b) => sum + b.amount);
 
-  int get netPosition => cash - stillOwed;
+  /// Cash minus everything owed on loans minus this month's unpaid bills.
+  /// Loan payments due are not subtracted again: they are part of
+  /// [stillOwed].
+  int get netPosition => cash - stillOwed - billsLeftAmount;
 
   static MonthSummary empty(String month) => computeSummary(
         month: month,

@@ -103,7 +103,8 @@ For a selected month `M`:
 - **Bills left this month** = active bills with no `bill` entry (matching
   `bill_id`) dated in M. Show the count and the sum of their expected amounts.
   A bill is "paid" for M once at least one entry for it exists in M.
-- **Net position** = `cash(M) − stillOwed`.
+- **Net position** = `cash(M) − stillOwed − billsLeftAmount(M)` (v1.5;
+  loan dues are not subtracted again, they are inside `stillOwed`).
 - **Breakdown** = totals per type for M.
 
 Loan payments are not expenses: they must never be added into `spent`.

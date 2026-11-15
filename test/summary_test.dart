@@ -40,7 +40,7 @@ void main() {
     expect(s.loanPaid, 0);
     expect(s.cash, 0);
     expect(s.stillOwed, 0);
-    expect(s.netPosition, 0);
+    expect(s.netPosition, -170000, reason: 'unpaid bills count against it');
     expect(s.billsLeftCount, 2, reason: 'archived bills are not counted');
     expect(s.billsLeftAmount, 170000);
     for (final t in EntryType.values) {
@@ -67,7 +67,7 @@ void main() {
     expect(s.loanPaid, 100000);
     expect(s.cash, 2000000 - 95050 - 100000);
     expect(s.stillOwed, 900000);
-    expect(s.netPosition, s.cash - 900000);
+    expect(s.netPosition, s.cash - 900000 - 120000);
     expect(s.breakdown[EntryType.loanPayment], 100000);
     expect(s.breakdown[EntryType.daily], 15050);
     expect(s.billsLeftCount, 1);
