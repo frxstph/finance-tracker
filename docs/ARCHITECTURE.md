@@ -306,3 +306,11 @@ prefills the amount due (or the balance when nothing is due).
   date paid, "Confirm payment". The date defaults to today when the selected
   month is the current one, otherwise the 1st of the selected month, so the
   payment marks that month's bill as paid.
+
+## 16. v1.6 changes (dashboard colors)
+
+Stat card values: Cash on hand green above ₱0, red below. Left to pay
+orange while anything is unpaid. Still owed red while any loan has a
+balance. Net position green above ₱0, red below. Zero stays the plain text
+color. Colors come from `incomeColor`, `billsColor` and `debtColor` in
+lib/ui/theme.dart, with lighter shades in dark mode.

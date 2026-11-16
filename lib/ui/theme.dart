@@ -8,7 +8,7 @@ import '../domain/models.dart';
 const Color seedColor = Color(0xFF2E7D5B);
 
 /// App version shown in settings. Keep in sync with pubspec.yaml.
-const String appVersion = '1.5.0';
+const String appVersion = '1.6.0';
 
 ThemeData buildTheme(Brightness brightness) {
   final scheme =
@@ -30,6 +30,16 @@ Color incomeColor(BuildContext context) {
       ? const Color(0xFF7FD6A0)
       : const Color(0xFF1B7A43);
 }
+
+/// Orange for bills still to pay.
+Color billsColor(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFFFFB066)
+      : const Color(0xFFB85C00);
+}
+
+/// Red for debt and negative amounts.
+Color debtColor(BuildContext context) => Theme.of(context).colorScheme.error;
 
 IconData iconForType(EntryType type) {
   switch (type) {

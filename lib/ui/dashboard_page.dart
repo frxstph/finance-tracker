@@ -17,7 +17,12 @@ class DashboardPage extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     final s = state.summary;
-    final danger = Theme.of(context).colorScheme.error;
+    final green = incomeColor(context);
+    final orange = billsColor(context);
+    final red = debtColor(context);
+
+    // Green when above zero, red when below, plain at zero.
+    Color? signColor(int v) => v > 0 ? green : (v < 0 ? red : null);
     final leftParts = <String>[
       if (s.billsLeftCount > 0)
         '${s.billsLeftCount} ${s.billsLeftCount == 1 ? 'bill' : 'bills'}',
@@ -42,7 +47,7 @@ class DashboardPage extends StatelessWidget {
                       label: 'Cash on hand',
                       icon: Icons.account_balance_wallet_outlined,
                       value: formatPeso(s.cash),
-                      valueColor: s.cash < 0 ? danger : null,
+                      valueColor: signColor(s.cash),
                       detail: 'This month only',
                     ),
                   ),
@@ -51,6 +56,7 @@ class DashboardPage extends StatelessWidget {
                       label: 'Still owed',
                       icon: Icons.account_balance_outlined,
                       value: formatPeso(s.stillOwed),
+                      valueColor: s.stillOwed > 0 ? red : null,
                       detail: 'All loans',
                     ),
                   ),
@@ -64,6 +70,7 @@ class DashboardPage extends StatelessWidget {
                       label: 'Left to pay',
                       icon: Icons.receipt_long_outlined,
                       value: formatPeso(s.leftToPayAmount),
+                      valueColor: s.leftToPayAmount > 0 ? orange : null,
                       detail: leftDetail,
                     ),
                   ),
@@ -72,7 +79,7 @@ class DashboardPage extends StatelessWidget {
                       label: 'Net position',
                       icon: Icons.balance_outlined,
                       value: formatPeso(s.netPosition),
-                      valueColor: s.netPosition < 0 ? danger : null,
+                      valueColor: signColor(s.netPosition),
                       detail: 'Cash minus owed and unpaid bills',
                     ),
                   ),
