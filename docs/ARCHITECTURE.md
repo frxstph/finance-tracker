@@ -374,3 +374,12 @@ version 4 (1–3 still restore; their bills read as monthly).
 
 Also: the empty-row hints on the Monthly tab are gone, and cash on hand's
 detail line reads "Running balance".
+
+## 19. v1.8.1 (loan card layout)
+
+Loan cards read top to bottom in four bands: name with Pay and the menu;
+the balance as one large number (red, green when paid off) with "left of
+₱total"; the progress bar with "₱paid paid · n of m paid" and "₱x / month"
+under it; then a colored status pill (orange "Due this month · ₱x", grey
+"Starts …", green "Nothing due this month" / "Paid off") beside the date
+range. Same information as before, grouped.

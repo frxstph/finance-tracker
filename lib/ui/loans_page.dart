@@ -74,26 +74,7 @@ class _LoanCard extends StatelessWidget {
   /// Selected month, "yyyy-MM".
   final String month;
 
-  /// "₱5,000 a month · 2 of 6 paid · Dec 2026 to May 2027"
-  String _planLine() {
-    if (loan.plan == LoanPlan.full) {
-      return 'Pay in full by ${shortMonthLabel(loan.startMonth)}';
-    }
-    final n = loan.paymentCount;
-    final last = monthKey(addMonths(parseMonthKey(loan.startMonth), n - 1));
-    return '${formatPeso(loan.installment)} a month · '
-        '${paymentsCovered(loan, paid)} of $n paid · '
-        '${shortMonthLabel(loan.startMonth)} to ${shortMonthLabel(last)}';
-  }
 
-  /// "Due this month ₱5,000", or why nothing is due.
-  String _dueLine() {
-    if (due > 0) return 'Due this month ${formatPeso(due)}';
-    if (monthsBetween(loan.startMonth, month) < 0) {
-      return 'Starts ${shortMonthLabel(loan.startMonth)}';
-    }
-    return 'Nothing due this month';
-  }
 
   void _pay(BuildContext context) {
     showPayLoan(context, loan);
@@ -126,22 +107,58 @@ class _LoanCard extends StatelessWidget {
     }
   }
 
+  /// "1 of 6 paid" for a monthly plan.
+  String _countText() {
+    if (loan.plan == LoanPlan.full) return 'Pay in full';
+    return '${paymentsCovered(loan, paid)} of ${loan.paymentCount} paid';
+  }
+
+  /// "Nov 2026 – Apr 2027", or "by Nov 2026" for pay in full.
+  String _spanText() {
+    if (loan.plan == LoanPlan.full) {
+      return 'by ${shortMonthLabel(loan.startMonth)}';
+    }
+    final last = monthKey(
+        addMonths(parseMonthKey(loan.startMonth), loan.paymentCount - 1));
+    return '${shortMonthLabel(loan.startMonth)} – ${shortMonthLabel(last)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
     final progress = loan.principal <= 0
         ? 1.0
         : (paid / loan.principal).clamp(0.0, 1.0).toDouble();
-    final numbers =
-        theme.textTheme.bodyMedium?.copyWith(fontFeatures: tabularFigures);
+    final small = theme.textTheme.bodyMedium
+        ?.copyWith(fontFeatures: tabularFigures, color: muted);
     final done = balance == 0;
+    final green = incomeColor(context);
+
+    // Status pill: what this month asks of you.
+    final String pillText;
+    final Color pillColor;
+    if (done) {
+      pillText = 'Paid off';
+      pillColor = green;
+    } else if (due > 0) {
+      pillText = 'Due this month · ${formatPeso(due)}';
+      pillColor = billsColor(context);
+    } else if (monthsBetween(loan.startMonth, month) < 0) {
+      pillText = 'Starts ${shortMonthLabel(loan.startMonth)}';
+      pillColor = muted;
+    } else {
+      pillText = 'Nothing due this month';
+      pillColor = green;
+    }
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 4, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            // Name and actions
             Row(
               children: <Widget>[
                 if (photo != null) ...<Widget>[
@@ -149,7 +166,12 @@ class _LoanCard extends StatelessWidget {
                   const SizedBox(width: 12),
                 ],
                 Expanded(
-                  child: Text(loan.name, style: theme.textTheme.titleMedium),
+                  child: Text(
+                    loan.name,
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (!done)
                   FilledButton.tonal(
@@ -172,27 +194,91 @@ class _LoanCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+
             Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: LinearProgressIndicator(value: progress, minHeight: 8),
-            ),
-            const SizedBox(height: 8),
-            Text(_planLine(), style: numbers),
-            Text(
-              'Paid ${formatPeso(paid)} of ${formatPeso(loan.principal)}',
-              style: numbers,
-            ),
-            if (!done)
-              Text(
-                _dueLine(),
-                style: numbers?.copyWith(
-                  color: due > 0 ? theme.colorScheme.primary : null,
-                ),
+              padding: const EdgeInsets.only(right: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // The one number to read first
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            formatPeso(balance),
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: tabularFigures,
+                              color: done ? green : debtColor(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('left of ${formatPeso(loan.principal)}',
+                            style: small),
+                      ),
+                    ],
+                  ),
+
+                  // Progress and its numbers
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child:
+                        LinearProgressIndicator(value: progress, minHeight: 8),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          '${formatPeso(paid)} paid · ${_countText()}',
+                          style: small,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (loan.plan == LoanPlan.monthly)
+                        Text('${formatPeso(loan.installment)} / month',
+                            style: small),
+                    ],
+                  ),
+
+                  // This month
+                  const SizedBox(height: 14),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: pillColor.withAlpha(36),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          pillText,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: pillColor,
+                            fontFeatures: tabularFigures,
+                          ),
+                        ),
+                      ),
+                      Text(_spanText(), style: small),
+                    ],
+                  ),
+                ],
               ),
-            Text(
-              done ? 'Paid off' : 'Balance ${formatPeso(balance)}',
-              style: numbers?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),
