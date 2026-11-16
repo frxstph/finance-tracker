@@ -23,6 +23,9 @@ class ConfirmPaymentPage extends StatefulWidget {
     this.afterLine,
     this.initialDate,
     this.photoLabel = 'Add photo of payment',
+    this.confirmLabel = 'Confirm payment',
+    this.doneVerb = 'Paid',
+    this.dateLabel = 'Date paid',
   });
 
   /// App bar title, e.g. "Pay Water".
@@ -44,6 +47,15 @@ class ConfirmPaymentPage extends StatefulWidget {
   final DateTime? initialDate;
 
   final String photoLabel;
+
+  /// Text on the big button.
+  final String confirmLabel;
+
+  /// Start of the message shown after saving, e.g. "Paid" or "Received".
+  final String doneVerb;
+
+  /// Label under the date.
+  final String dateLabel;
 
   @override
   State<ConfirmPaymentPage> createState() => _ConfirmPaymentPageState();
@@ -114,7 +126,7 @@ class _ConfirmPaymentPageState extends State<ConfirmPaymentPage> {
     final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
     messenger.showSnackBar(SnackBar(
-      content: Text('Paid ${formatPeso(amount)} · ${widget.title}'),
+      content: Text('${widget.doneVerb} ${formatPeso(amount)}'),
     ));
   }
 
@@ -190,7 +202,7 @@ class _ConfirmPaymentPageState extends State<ConfirmPaymentPage> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event_outlined),
             title: Text(dayLabel(_date)),
-            subtitle: const Text('Date paid'),
+            subtitle: Text(widget.dateLabel),
             onTap: _pickDate,
           ),
         ],
@@ -204,7 +216,7 @@ class _ConfirmPaymentPageState extends State<ConfirmPaymentPage> {
             ),
             onPressed: _saving ? null : _confirm,
             icon: const Icon(Icons.check),
-            label: const Text('Confirm payment'),
+            label: Text(widget.confirmLabel),
           ),
         ),
       ),

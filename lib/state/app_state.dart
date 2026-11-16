@@ -42,6 +42,7 @@ class AppState extends ChangeNotifier {
   DateTime _month = startOfMonth(DateTime.now());
   List<Bill> _bills = const <Bill>[];
   List<Loan> _loans = const <Loan>[];
+  List<IncomeSource> _incomes = const <IncomeSource>[];
   List<Entry> _entries = const <Entry>[];
   MonthSummary _summary = MonthSummary.empty(monthKey(DateTime.now()));
   Map<int, int> _loanTotals = const <int, int>{};
@@ -54,6 +55,28 @@ class AppState extends ChangeNotifier {
   List<Bill> get activeBills => _bills.where((b) => b.active).toList();
   List<Bill> get archivedBills => _bills.where((b) => !b.active).toList();
   List<Loan> get loans => _loans;
+  List<IncomeSource> get incomes => _incomes;
+  List<IncomeSource> get activeIncomes =>
+      _incomes.where((i) => i.active).toList();
+  List<IncomeSource> get archivedIncomes =>
+      _incomes.where((i) => !i.active).toList();
+
+  /// The month that holds today.
+  String get currentMonthKey => monthKey(DateTime.now());
+
+  /// "If everything is paid" forecast for the selected month, chained from
+  /// the current month. Null for months before the current one.
+  ForecastMonth? get forecast {
+    final months = forecastMonths(
+      fromMonth: currentMonthKey,
+      toMonth: monthKeyValue,
+      entries: _entries,
+      bills: _bills,
+      loans: _loans,
+      incomes: _incomes,
+    );
+    return months.isEmpty ? null : months.last;
+  }
   List<Entry> get allEntries => _entries;
   MonthSummary get summary => _summary;
 
@@ -79,6 +102,14 @@ class AppState extends ChangeNotifier {
     if (id == null) return null;
     for (final b in _bills) {
       if (b.id == id) return b;
+    }
+    return null;
+  }
+
+  IncomeSource? incomeById(int? id) {
+    if (id == null) return null;
+    for (final i in _incomes) {
+      if (i.id == id) return i;
     }
     return null;
   }
@@ -110,6 +141,10 @@ class AppState extends ChangeNotifier {
       final l = loanById(e.loanId);
       if (l != null) return l.name;
     }
+    if (e.type == EntryType.income) {
+      final i = incomeById(e.incomeId);
+      if (i != null) return i.name;
+    }
     return e.type.label;
   }
 
@@ -124,6 +159,7 @@ class AppState extends ChangeNotifier {
   Future<void> load() async {
     _bills = await _repo.bills();
     _loans = await _repo.loans();
+    _incomes = await _repo.incomes();
     _entries = await _repo.entries();
     _loaded = true;
     _recompute();
@@ -136,6 +172,7 @@ class AppState extends ChangeNotifier {
       entries: _entries,
       bills: _bills,
       loans: _loans,
+      incomes: _incomes,
     );
     notifyListeners();
   }
@@ -178,6 +215,7 @@ class AppState extends ChangeNotifier {
       date: entry.date,
       billId: entry.type == EntryType.bill ? entry.billId : null,
       loanId: entry.type.needsLoan ? entry.loanId : null,
+      incomeId: entry.type == EntryType.income ? entry.incomeId : null,
       photo: photo,
       createdAt: entry.createdAt,
     );
@@ -243,6 +281,40 @@ class AppState extends ChangeNotifier {
 
   Future<void> _reloadBills() async {
     _bills = await _repo.bills();
+    _recompute();
+  }
+
+  // Monthly income sources
+
+  Future<void> saveIncome(IncomeSource source) async {
+    if (source.id == null) {
+      await _repo.insertIncome(source);
+    } else {
+      await _repo.updateIncome(source);
+    }
+    await _reloadIncomes();
+  }
+
+  Future<void> setIncomeActive(IncomeSource source, bool active) async {
+    await _repo.updateIncome(source.copyWith(active: active));
+    await _reloadIncomes();
+  }
+
+  /// Deletes an income source that has never been received. Throws
+  /// [ActionNotAllowed] otherwise.
+  Future<void> deleteIncome(IncomeSource source) async {
+    final id = source.id;
+    if (id == null) return;
+    if (await _repo.incomeHasEntries(id)) {
+      throw const ActionNotAllowed(
+          'This income has been received before, so it can only be archived.');
+    }
+    await _repo.deleteIncome(id);
+    await _reloadIncomes();
+  }
+
+  Future<void> _reloadIncomes() async {
+    _incomes = await _repo.incomes();
     _recompute();
   }
 

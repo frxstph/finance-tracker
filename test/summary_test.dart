@@ -75,7 +75,7 @@ void main() {
     expect(s.paidBillIds, <int>{1});
   });
 
-  test('cash can go negative; months do not carry over', () {
+  test('cash carries over from earlier months', () {
     final entries = <Entry>[
       e(EntryType.income, 500000, '2026-10-01'),
       e(EntryType.daily, 80000, '2026-11-02'),
@@ -86,15 +86,40 @@ void main() {
       bills: const <Bill>[],
       loans: const <Loan>[],
     );
-    expect(nov.cash, -80000);
-    expect(nov.netPosition, -80000);
+    expect(nov.openingCash, 500000, reason: 'October left 500000');
+    expect(nov.monthChange, -80000);
+    expect(nov.cash, 420000);
+    expect(nov.netPosition, 420000);
     final oct = computeSummary(
       month: '2026-10',
       entries: entries,
       bills: const <Bill>[],
       loans: const <Loan>[],
     );
+    expect(oct.openingCash, 0);
     expect(oct.cash, 500000);
+    final dec = computeSummary(
+      month: '2026-12',
+      entries: entries,
+      bills: const <Bill>[],
+      loans: const <Loan>[],
+    );
+    expect(dec.cash, 420000, reason: 'an empty month keeps the cash');
+  });
+
+  test('cash can go negative and the shortfall carries over', () {
+    final entries = <Entry>[
+      e(EntryType.daily, 80000, '2026-11-02'),
+      e(EntryType.income, 50000, '2026-12-02'),
+    ];
+    final dec = computeSummary(
+      month: '2026-12',
+      entries: entries,
+      bills: const <Bill>[],
+      loans: const <Loan>[],
+    );
+    expect(dec.openingCash, -80000);
+    expect(dec.cash, -30000);
   });
 
   test('loan overpayment is clamped at 0 and still owed spans all time', () {

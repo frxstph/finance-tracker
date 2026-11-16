@@ -35,6 +35,35 @@ class Repository {
     return rows.isNotEmpty;
   }
 
+  // Monthly income sources
+
+  /// Ordered by the day they arrive.
+  Future<List<IncomeSource>> incomes() async {
+    final rows = await _db.query('incomes', orderBy: 'day, name COLLATE NOCASE');
+    return rows.map(IncomeSource.fromMap).toList();
+  }
+
+  Future<int> insertIncome(IncomeSource source) =>
+      _db.insert('incomes', source.toMap());
+
+  Future<void> updateIncome(IncomeSource source) async {
+    await _db.update('incomes', source.toMap(),
+        where: 'id = ?', whereArgs: <Object?>[source.id]);
+  }
+
+  Future<void> deleteIncome(int id) async {
+    await _db.delete('incomes', where: 'id = ?', whereArgs: <Object?>[id]);
+  }
+
+  Future<bool> incomeHasEntries(int id) async {
+    final rows = await _db.query('entries',
+        columns: <String>['id'],
+        where: 'income_id = ?',
+        whereArgs: <Object?>[id],
+        limit: 1);
+    return rows.isNotEmpty;
+  }
+
   // Loans
 
   Future<List<Loan>> loans() async {
@@ -109,14 +138,19 @@ class Repository {
   Future<void> replaceAll({
     required List<Bill> bills,
     required List<Loan> loans,
+    required List<IncomeSource> incomes,
     required List<Entry> entries,
   }) async {
     await _db.transaction((Transaction txn) async {
       await txn.delete('entries');
       await txn.delete('bills');
       await txn.delete('loans');
+      await txn.delete('incomes');
       for (final b in bills) {
         await txn.insert('bills', b.toMap());
+      }
+      for (final i in incomes) {
+        await txn.insert('incomes', i.toMap());
       }
       for (final l in loans) {
         await txn.insert('loans', l.toMap());

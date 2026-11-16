@@ -14,6 +14,9 @@ class MonthSummary {
     required this.paidBillIds,
     required this.breakdown,
     required this.loanDues,
+    required this.openingCash,
+    required this.incomesLeft,
+    required this.receivedIncomeIds,
   });
 
   /// "yyyy-MM"
@@ -43,8 +46,25 @@ class MonthSummary {
   /// something due are present.
   final Map<int, int> loanDues;
 
-  /// Each month starts at ₱0; no carry-over. May be negative.
-  int get cash => income + loanReceived - spent - loanPaid;
+  /// Cash carried in from every earlier month: all money in minus all money
+  /// out dated before this month.
+  final int openingCash;
+
+  /// Active monthly income sources not yet received this month.
+  final List<IncomeSource> incomesLeft;
+
+  /// Ids of income sources with an income entry this month.
+  final Set<int> receivedIncomeIds;
+
+  /// Money in minus money out during this month only.
+  int get monthChange => income + loanReceived - spent - loanPaid;
+
+  /// Cash on hand at the end of this month (or now, for the current month):
+  /// what was carried in plus this month's change. May be negative.
+  int get cash => openingCash + monthChange;
+
+  int get incomeLeftAmount =>
+      incomesLeft.fold<int>(0, (sum, i) => sum + i.amount);
 
   int get loanDueCount => loanDues.length;
 
@@ -70,6 +90,19 @@ class MonthSummary {
         bills: const <Bill>[],
         loans: const <Loan>[],
       );
+}
+
+/// +amount for money in, −amount for money out.
+int signedAmount(Entry e) => e.type.isMoneyIn ? e.amount : -e.amount;
+
+/// All money in minus all money out dated before [month] ("yyyy-MM").
+int cashBefore(Iterable<Entry> entries, String month) {
+  var total = 0;
+  for (final e in entries) {
+    if (e.date.length < 7) continue;
+    if (e.date.substring(0, 7).compareTo(month) < 0) total += signedAmount(e);
+  }
+  return total;
 }
 
 /// Sum of all loan_payment entries per loan id, across all time.
@@ -151,7 +184,9 @@ MonthSummary computeSummary({
   required List<Entry> entries,
   required List<Bill> bills,
   required List<Loan> loans,
+  List<IncomeSource> incomes = const <IncomeSource>[],
 }) {
+  final receivedIncomeIds = <int>{};
   final breakdown = <EntryType, int>{
     for (final t in EntryType.values) t: 0,
   };
@@ -162,6 +197,9 @@ MonthSummary computeSummary({
     breakdown[e.type] = breakdown[e.type]! + e.amount;
     if (e.type == EntryType.bill && e.billId != null) {
       paidBillIds.add(e.billId!);
+    }
+    if (e.type == EntryType.income && e.incomeId != null) {
+      receivedIncomeIds.add(e.incomeId!);
     }
   }
 
@@ -200,5 +238,141 @@ MonthSummary computeSummary({
     paidBillIds: paidBillIds,
     breakdown: breakdown,
     loanDues: loanDues,
+    openingCash: cashBefore(entries, month),
+    incomesLeft: <IncomeSource>[
+      for (final i in incomes)
+        if (i.active && !(i.id != null && receivedIncomeIds.contains(i.id)))
+          i,
+    ],
+    receivedIncomeIds: receivedIncomeIds,
   );
+}
+
+/// One month of the "if everything is paid" forecast.
+class ForecastMonth {
+  const ForecastMonth({
+    required this.month,
+    required this.startCash,
+    required this.recorded,
+    required this.incomeToCome,
+    required this.billsToPay,
+    required this.loanPayments,
+    required this.owedAfter,
+  });
+
+  /// "yyyy-MM"
+  final String month;
+
+  /// Cash at the start of the month (actual for the first forecast month,
+  /// projected after that).
+  final int startCash;
+
+  /// Money in minus money out already recorded in this month.
+  final int recorded;
+
+  /// Monthly income expected but not yet received this month.
+  final int incomeToCome;
+
+  /// Active bills not yet paid this month.
+  final int billsToPay;
+
+  /// Loan payments the plans expect this month, catch-up included.
+  final int loanPayments;
+
+  /// Loans still owed after this month's planned payments.
+  final int owedAfter;
+
+  /// Projected cash at the end of the month.
+  int get endCash =>
+      startCash + recorded + incomeToCome - billsToPay - loanPayments;
+
+  int get netPosition => endCash - owedAfter;
+}
+
+/// Forecast from [fromMonth] through [toMonth] ("yyyy-MM"), assuming every
+/// expected monthly income arrives, every active bill is paid and every loan
+/// payment its plan expects is made. Entries already recorded (in any month)
+/// count as they are. Returns one item per month, oldest first; empty when
+/// [toMonth] is before [fromMonth].
+List<ForecastMonth> forecastMonths({
+  required String fromMonth,
+  required String toMonth,
+  required List<Entry> entries,
+  required List<Bill> bills,
+  required List<Loan> loans,
+  List<IncomeSource> incomes = const <IncomeSource>[],
+}) {
+  final result = <ForecastMonth>[];
+  final count = monthsBetween(fromMonth, toMonth);
+  if (count < 0) return result;
+
+  final totals = loanPaymentTotals(entries);
+  final planned = <int, int>{};
+  var cash = cashBefore(entries, fromMonth);
+  final start = parseMonthKey(fromMonth);
+
+  for (var i = 0; i <= count; i++) {
+    final month = monthKey(addMonths(start, i));
+    var recorded = 0;
+    final paidBills = <int>{};
+    final receivedIncomes = <int>{};
+    for (final e in entries) {
+      if (!isInMonth(e.date, month)) continue;
+      recorded += signedAmount(e);
+      if (e.type == EntryType.bill && e.billId != null) paidBills.add(e.billId!);
+      if (e.type == EntryType.income && e.incomeId != null) {
+        receivedIncomes.add(e.incomeId!);
+      }
+    }
+
+    var incomeToCome = 0;
+    for (final s in incomes) {
+      if (s.active && !(s.id != null && receivedIncomes.contains(s.id))) {
+        incomeToCome += s.amount;
+      }
+    }
+    var billsToPay = 0;
+    for (final b in bills) {
+      if (b.active && !(b.id != null && paidBills.contains(b.id))) {
+        billsToPay += b.amount;
+      }
+    }
+
+    var loanPayments = 0;
+    var owedAfter = 0;
+    for (final loan in loans) {
+      final id = loan.id;
+      if (id == null) continue;
+      final extra = planned[id] ?? 0;
+      var balance = loan.principal - (totals[id] ?? 0) - extra;
+      if (balance < 0) balance = 0;
+      final elapsed = monthsBetween(loan.startMonth, month);
+      var due = 0;
+      if (elapsed >= 0 && balance > 0) {
+        final n = loan.paymentCount;
+        final k = elapsed + 1 < n ? elapsed + 1 : n;
+        final perMonth = loan.installment * k;
+        final expected = perMonth < loan.principal ? perMonth : loan.principal;
+        due = expected - _paidThrough(entries, id, month) - extra;
+        if (due < 0) due = 0;
+        if (due > balance) due = balance;
+      }
+      planned[id] = extra + due;
+      loanPayments += due;
+      owedAfter += balance - due;
+    }
+
+    final item = ForecastMonth(
+      month: month,
+      startCash: cash,
+      recorded: recorded,
+      incomeToCome: incomeToCome,
+      billsToPay: billsToPay,
+      loanPayments: loanPayments,
+      owedAfter: owedAfter,
+    );
+    result.add(item);
+    cash = item.endCash;
+  }
+  return result;
 }

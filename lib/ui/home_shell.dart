@@ -6,11 +6,13 @@ import 'entries_page.dart';
 import 'loan_form_page.dart';
 import 'loans_page.dart';
 import 'quick_add_page.dart';
+import 'theme.dart';
 import 'settings_page.dart';
 import 'widgets/name_amount_dialog.dart';
 
 /// Bottom navigation with four tabs. The add button follows the tab: entries
-/// on Dashboard and Entries, bills on Bills, loans on Loans.
+/// on Dashboard and Entries, monthly income or a bill on Monthly, loans on
+/// Loans.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -24,7 +26,7 @@ class _HomeShellState extends State<HomeShell> {
   static const List<String> _titles = <String>[
     'Dashboard',
     'Entries',
-    'Bills',
+    'Monthly',
     'Loans',
   ];
 
@@ -54,15 +56,49 @@ class _HomeShellState extends State<HomeShell> {
     ];
   }
 
+  /// On the Monthly tab, ask whether to add income or a bill.
+  Future<void> _chooseMonthlyAdd() async {
+    final choice = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: Icon(Icons.arrow_downward, color: incomeColor(context)),
+              title: const Text('Monthly income'),
+              subtitle: const Text('Comes in on a set day each month'),
+              onTap: () => Navigator.of(sheetContext).pop(0),
+            ),
+            ListTile(
+              leading: Icon(Icons.receipt_long, color: billsColor(context)),
+              title: const Text('Monthly bill'),
+              subtitle: const Text('Goes out every month'),
+              onTap: () => Navigator.of(sheetContext).pop(1),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 0) {
+      await showNewIncomeDialog(context);
+    } else {
+      await showNewBillDialog(context);
+    }
+  }
+
   Widget _addButton() {
     switch (_index) {
       case 2:
         return FloatingActionButton.extended(
-          key: const ValueKey<String>('add-bill'),
-          heroTag: 'add-bill',
-          onPressed: () => showNewBillDialog(context),
+          key: const ValueKey<String>('add-monthly'),
+          heroTag: 'add-monthly',
+          onPressed: _chooseMonthlyAdd,
           icon: const Icon(Icons.add),
-          label: const Text('Add bill'),
+          label: const Text('Add'),
         );
       case 3:
         return FloatingActionButton.extended(
@@ -115,9 +151,9 @@ class _HomeShellState extends State<HomeShell> {
             label: 'Entries',
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Bills',
+            icon: Icon(Icons.event_repeat_outlined),
+            selectedIcon: Icon(Icons.event_repeat),
+            label: 'Monthly',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_outlined),

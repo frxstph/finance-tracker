@@ -100,6 +100,14 @@ String shortMonthLabel(String month) {
   return '${_monthNames[d.month - 1].substring(0, 3)} ${d.year}';
 }
 
+/// [day] of [month]'s month, moved to the last day when the month is
+/// shorter (the 31st of February is the 28th or 29th).
+DateTime dayInMonth(DateTime month, int day) {
+  final last = DateTime(month.year, month.month + 1, 0).day;
+  final d = day < 1 ? 1 : (day > last ? last : day);
+  return DateTime(month.year, month.month, d);
+}
+
 /// First day of the month containing [d].
 DateTime startOfMonth(DateTime d) => DateTime(d.year, d.month, 1);
 

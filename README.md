@@ -19,14 +19,21 @@ you stand this month.
   can keep a photo of its agreement or IOU.
 - **Pay amounts fill themselves**: pick a loan and the amount due this month
   is filled in; pick a bill and its monthly amount is.
+- **Monthly income** on a set day (salary every 19th, pay on the 15th) with a
+  Receive button, next to monthly bills on the Monthly tab.
+- **Entries list filters**: income, spending, one-time, loan payments, for
+  one month or all months, with totals.
+- **Forecast ("If all paid")**: where cash and net position land at the end
+  of any month if expected income arrives and every bill and loan payment
+  is made.
 - **An add button that follows the tab**: add an entry, a bill or a loan.
 - **Backup and restore** as a single zip you can keep in Drive or Files.
 - Light and dark themes that follow the phone.
 
 How the numbers work:
 
-- Cash on hand = income + loans received − spending − loan payments for the
-  selected month.
+- Cash on hand carries over: what you had at the end of last month plus this
+  month's income and loans received, minus spending and loan payments.
   Every month starts from ₱0 (no carry-over).
 - Still owed = what is left on every loan, across all time.
 - Net position = cash on hand − still owed − this month's unpaid bills.

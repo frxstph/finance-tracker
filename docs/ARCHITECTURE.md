@@ -314,3 +314,40 @@ orange while anything is unpaid. Still owed red while any loan has a
 balance. Net position green above ₱0, red below. Zero stays the plain text
 color. Colors come from `incomeColor`, `billsColor` and `debtColor` in
 lib/ui/theme.dart, with lighter shades in dark mode.
+
+## 17. v1.7 changes (carry-over, monthly income, entry filters, forecast)
+
+**Cash carries over.** Replaces "each month starts at ₱0" (§5).
+`openingCash(M)` = all money in − all money out dated before M;
+`cash(M) = openingCash(M) + monthChange(M)`. Money in = income and loan
+received; everything else is money out. The dashboard shows "Started month
+with ₱X" under cash on hand.
+
+**Monthly income sources.** Schema v4: table `incomes(id, name, amount, day
+1–31, active)`, and `entries.income_id` (only on income entries). A source
+is expected each month until an income entry linked to it is dated in that
+month. Day 29–31 falls on the last day of shorter months. Delete only when
+never received; otherwise archive. Backup version 3 adds `incomes`
+(versions 1–2 still restore, with no incomes).
+
+**Monthly tab** (was "Bills"): "Monthly income" section (each with
+"Receive" → the shared confirm screen, dated today in the current month or
+the source's day in another month) above "Monthly bills". Its add button
+asks which one to add. Quick add's Income type has an optional "Monthly
+income" picker ("Other income (not monthly)" by default).
+
+**Entries tab.** Filter chips: All, Income (incl. loans received),
+Spending (bills, one-time, daily), One-time, Loan payments; an "All months"
+chip that drops the month switcher. A total line: net for All, sum
+otherwise.
+
+**Forecast ("If all paid").** A dashboard toggle. `forecastMonths(from:
+current month, to: selected month)` simulates each month: start cash
+(actual for the current month, the previous month's projected end after
+that) + recorded entries in the month + monthly income not yet received −
+active bills not yet paid − the loan payments each plan expects (catch-up
+included; payments the forecast already assumed in earlier months count as
+made). End cash, loans owed after those payments, and net position = end
+cash − owed after. Months before the current one have no forecast; the
+dashboard says so and shows the actual numbers. A "How it adds up" card
+lists the sum.

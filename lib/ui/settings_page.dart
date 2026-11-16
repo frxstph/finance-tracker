@@ -67,6 +67,7 @@ class _SettingsPageState extends State<SettingsPage> {
       title: 'Restore this backup?',
       message: 'This replaces everything on this phone with the backup '
           '(${contents.bills.length} bills, ${contents.loans.length} loans, '
+          '${contents.incomes.length} monthly incomes, '
           '${contents.entries.length} entries, '
           '${contents.receipts.length} photos).',
       confirmLabel: 'Restore',

@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-const int schemaVersion = 3;
+const int schemaVersion = 4;
 const String databaseFileName = 'finance.db';
 
 const List<String> _schemaV1 = <String>[
@@ -49,6 +49,19 @@ const List<String> _upgradeToV3 = <String>[
   'ALTER TABLE loans ADD COLUMN photo TEXT',
 ];
 
+/// Version 4: monthly income sources, and income entries can point to one.
+const List<String> _upgradeToV4 = <String>[
+  '''
+CREATE TABLE incomes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  day INTEGER NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1
+)''',
+  'ALTER TABLE entries ADD COLUMN income_id INTEGER REFERENCES incomes(id)',
+];
+
 /// Opens (and creates on first run) the app database.
 Future<Database> openAppDatabase() async {
   final dir = await getDatabasesPath();
@@ -68,6 +81,9 @@ Future<Database> openAppDatabase() async {
       for (final sql in _upgradeToV3) {
         await db.execute(sql);
       }
+      for (final sql in _upgradeToV4) {
+        await db.execute(sql);
+      }
     },
     onUpgrade: (Database db, int oldVersion, int newVersion) async {
       if (oldVersion < 2) {
@@ -77,6 +93,11 @@ Future<Database> openAppDatabase() async {
       }
       if (oldVersion < 3) {
         for (final sql in _upgradeToV3) {
+          await db.execute(sql);
+        }
+      }
+      if (oldVersion < 4) {
+        for (final sql in _upgradeToV4) {
           await db.execute(sql);
         }
       }

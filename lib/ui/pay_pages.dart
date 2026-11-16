@@ -20,6 +20,42 @@ Future<void> _open(BuildContext context, ConfirmPaymentPage page) {
   );
 }
 
+/// Default date for receiving [source] in the selected month: today in the
+/// current month, otherwise its usual day in the selected month.
+DateTime _defaultReceiveDate(AppState state, IncomeSource source) {
+  final now = DateTime.now();
+  if (monthKey(now) == state.monthKeyValue) return now;
+  return dayInMonth(state.month, source.day);
+}
+
+/// Receive [source] for the selected month: usual amount, photo, confirm.
+Future<void> showReceiveIncome(BuildContext context, IncomeSource source) {
+  final state = AppScope.read(context);
+  return _open(
+    context,
+    ConfirmPaymentPage(
+      title: 'Receive ${source.name}',
+      what: 'Monthly income · every ${ordinalDay(source.day)}',
+      initialAmount: source.amount,
+      initialDate: _defaultReceiveDate(state, source),
+      photoLabel: 'Add photo (optional)',
+      confirmLabel: 'Confirm received',
+      doneVerb: 'Received',
+      dateLabel: 'Date received',
+      afterLine: (amount) => amount == source.amount
+          ? 'Usual amount'
+          : 'Usual amount ${formatPeso(source.amount)}',
+      buildEntry: (amount, date) => Entry(
+        type: EntryType.income,
+        amount: amount,
+        date: date,
+        incomeId: source.id,
+        createdAt: DateTime.now().toIso8601String(),
+      ),
+    ),
+  );
+}
+
 /// Pay [bill] for the selected month: its usual amount, photo, confirm.
 Future<void> showPayBill(BuildContext context, Bill bill) {
   final state = AppScope.read(context);

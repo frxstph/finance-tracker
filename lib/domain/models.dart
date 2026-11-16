@@ -222,6 +222,84 @@ class Loan {
   }
 }
 
+/// Money that comes in every month on a set day (salary on the 19th, an
+/// allowance on the 1st). Each month it is expected until an income entry
+/// linked to it is recorded in that month.
+class IncomeSource {
+  const IncomeSource({
+    this.id,
+    required this.name,
+    required this.amount,
+    required this.day,
+    this.active = true,
+  });
+
+  final int? id;
+  final String name;
+
+  /// Expected amount each month, in centavos.
+  final int amount;
+
+  /// Day of the month it usually arrives, 1–31. In a shorter month it
+  /// arrives on the last day.
+  final int day;
+
+  /// False = archived: no longer expected.
+  final bool active;
+
+  IncomeSource copyWith({
+    int? id,
+    String? name,
+    int? amount,
+    int? day,
+    bool? active,
+  }) {
+    return IncomeSource(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      amount: amount ?? this.amount,
+      day: day ?? this.day,
+      active: active ?? this.active,
+    );
+  }
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      if (id != null) 'id': id,
+      'name': name,
+      'amount': amount,
+      'day': day,
+      'active': active ? 1 : 0,
+    };
+  }
+
+  factory IncomeSource.fromMap(Map<String, Object?> map) {
+    return IncomeSource(
+      id: _intOrNull(map['id'], 'id'),
+      name: _str(map['name'], 'name'),
+      amount: _int(map['amount'], 'amount'),
+      day: _int(map['day'], 'day'),
+      active: _int(map['active'], 'active') != 0,
+    );
+  }
+}
+
+/// "1st", "2nd", "3rd", "19th", "21st".
+String ordinalDay(int day) {
+  final mod100 = day % 100;
+  if (mod100 >= 11 && mod100 <= 13) return '${day}th';
+  switch (day % 10) {
+    case 1:
+      return '${day}st';
+    case 2:
+      return '${day}nd';
+    case 3:
+      return '${day}rd';
+    default:
+      return '${day}th';
+  }
+}
+
 class Entry {
   const Entry({
     this.id,
@@ -231,6 +309,7 @@ class Entry {
     required this.date,
     this.billId,
     this.loanId,
+    this.incomeId,
     this.photo,
     required this.createdAt,
   });
@@ -251,6 +330,10 @@ class Entry {
   /// Set only when [type] needs a loan ([EntryType.needsLoan]).
   final int? loanId;
 
+  /// The monthly income source this income came from, or null. Only for
+  /// [EntryType.income].
+  final int? incomeId;
+
   /// File name inside the receipts folder, or null.
   final String? photo;
 
@@ -268,6 +351,7 @@ class Entry {
       'date': date,
       'bill_id': billId,
       'loan_id': loanId,
+      'income_id': incomeId,
       'photo': photo,
       'created_at': createdAt,
     };
@@ -283,6 +367,7 @@ class Entry {
       date: _str(map['date'], 'date'),
       billId: _intOrNull(map['bill_id'], 'bill_id'),
       loanId: _intOrNull(map['loan_id'], 'loan_id'),
+      incomeId: _intOrNull(map['income_id'], 'income_id'),
       photo: photo == null ? null : _str(photo, 'photo'),
       createdAt: _str(map['created_at'], 'created_at'),
     );

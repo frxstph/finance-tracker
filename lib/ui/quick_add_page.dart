@@ -41,6 +41,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
   EntryType _type = EntryType.daily;
   int? _billId;
   int? _loanId;
+  int? _incomeId;
   DateTime _date = DateTime.now();
   PhotoChange _photoChange = PhotoChange.keep;
   String? _newPhotoPath;
@@ -63,6 +64,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
       _note.text = e.note;
       _billId = e.billId;
       _loanId = e.loanId;
+      _incomeId = e.incomeId;
       if (isValidDateKey(e.date)) _date = parseDateKey(e.date);
     } else {
       _type = widget.initialType ?? EntryType.daily;
@@ -155,6 +157,17 @@ class _QuickAddPageState extends State<QuickAddPage> {
     }
   }
 
+  /// Picker key for "income that isn't one of the monthly ones".
+  static const int _otherIncome = -1;
+
+  void _onIncomeChosen(AppState state, int? id) {
+    setState(() {
+      _incomeId = id == null || id == _otherIncome ? null : id;
+      final source = state.incomeById(_incomeId);
+      if (source != null) _fillAmount(source.amount);
+    });
+  }
+
   void _onBillChosen(AppState state, int? id) {
     setState(() {
       _billId = id;
@@ -202,6 +215,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
       date: dateKey(_date),
       billId: _billId,
       loanId: _loanId,
+      incomeId: _incomeId,
       photo: existing?.photo,
       createdAt: existing?.createdAt ?? DateTime.now().toIso8601String(),
     );
@@ -269,6 +283,9 @@ class _QuickAddPageState extends State<QuickAddPage> {
               } else if (t == EntryType.bill) {
                 final bill = state.billById(_billId);
                 if (bill != null) _fillAmount(bill.amount);
+              } else if (t == EntryType.income) {
+                final source = state.incomeById(_incomeId);
+                if (source != null) _fillAmount(source.amount);
               }
             }),
           ),
@@ -323,7 +340,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
         return <Widget>[
           const SizedBox(height: 16),
           if (billChoices.isEmpty)
-            const Text('No bills yet. Add one on the Bills tab.')
+            const Text('No bills yet. Add one on the Monthly tab.')
           else
             PickerField(
               label: 'Bill',
@@ -366,6 +383,23 @@ class _QuickAddPageState extends State<QuickAddPage> {
           ],
         ];
       case EntryType.income:
+        final incomeChoices = <int, String>{
+          _otherIncome: 'Other income (not monthly)',
+          for (final i in state.incomes)
+            if (i.id != null && (i.active || i.id == _incomeId))
+              i.id!: '${i.name} · every ${ordinalDay(i.day)}',
+        };
+        if (incomeChoices.length == 1) return const <Widget>[];
+        return <Widget>[
+          const SizedBox(height: 16),
+          PickerField(
+            label: 'Monthly income',
+            hint: 'Other income (not monthly)',
+            value: _incomeId ?? _otherIncome,
+            choices: incomeChoices,
+            onChanged: (id) => _onIncomeChosen(state, id),
+          ),
+        ];
       case EntryType.oneTime:
       case EntryType.daily:
         return const <Widget>[];

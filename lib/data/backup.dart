@@ -12,11 +12,11 @@ import '../domain/models.dart';
 import 'photos.dart';
 import 'repository.dart';
 
-const int backupVersion = 2;
+const int backupVersion = 3;
 
 /// Backup versions this app can restore. Version 1 has no loan plans; its
-/// loans read as "pay in full".
-const Set<int> _readableVersions = <int>{1, 2};
+/// loans read as "pay in full". Versions 1 and 2 have no monthly incomes.
+const Set<int> _readableVersions = <int>{1, 2, 3};
 const String _dataFileName = 'data.json';
 const String _receiptsPrefix = 'receipts/';
 
@@ -26,12 +26,14 @@ class BackupContents {
   const BackupContents({
     required this.bills,
     required this.loans,
+    required this.incomes,
     required this.entries,
     required this.receipts,
   });
 
   final List<Bill> bills;
   final List<Loan> loans;
+  final List<IncomeSource> incomes;
   final List<Entry> entries;
 
   /// Receipt file name -> bytes.
@@ -59,12 +61,14 @@ class BackupService {
   Future<File> exportZip() async {
     final bills = await _repo.bills();
     final loans = await _repo.loans();
+    final incomes = await _repo.incomes();
     final entries = await _repo.entries();
 
     final data = <String, Object?>{
       'version': backupVersion,
       'bills': bills.map((b) => b.toMap()).toList(),
       'loans': loans.map((l) => l.toMap()).toList(),
+      'incomes': incomes.map((i) => i.toMap()).toList(),
       'entries': entries.map((e) => e.toMap()).toList(),
     };
 
@@ -209,19 +213,24 @@ class BackupService {
     }
     final bills = _parseRows<Bill>(data, 'bills', Bill.fromMap);
     final loans = _parseRows<Loan>(data, 'loans', Loan.fromMap);
+    final incomes = data.containsKey('incomes')
+        ? _parseRows<IncomeSource>(data, 'incomes', IncomeSource.fromMap)
+        : <IncomeSource>[];
     final entries = _parseRows<Entry>(data, 'entries', Entry.fromMap);
 
-    _validate(bills, loans, entries);
+    _validate(bills, loans, incomes, entries);
 
     return BackupContents(
       bills: bills,
       loans: loans,
+      incomes: incomes,
       entries: entries,
       receipts: receipts,
     );
   }
 
-  void _validate(List<Bill> bills, List<Loan> loans, List<Entry> entries) {
+  void _validate(List<Bill> bills, List<Loan> loans,
+      List<IncomeSource> incomes, List<Entry> entries) {
     Set<int> uniqueIds(Iterable<int?> ids, String what) {
       final seen = <int>{};
       for (final id in ids) {
@@ -234,7 +243,14 @@ class BackupService {
 
     final billIds = uniqueIds(bills.map((b) => b.id), 'bill');
     final loanIds = uniqueIds(loans.map((l) => l.id), 'loan');
+    final incomeIds = uniqueIds(incomes.map((i) => i.id), 'income');
     uniqueIds(entries.map((e) => e.id), 'entry');
+
+    for (final i in incomes) {
+      if (i.amount < 0 || i.day < 1 || i.day > 31) {
+        throw const FormatException('A monthly income has bad data.');
+      }
+    }
 
     for (final b in bills) {
       if (b.amount < 0) throw const FormatException('A bill has a bad amount.');
@@ -263,6 +279,9 @@ class BackupService {
       }
       if (e.loanId != null && !loanIds.contains(e.loanId)) {
         throw const FormatException('An entry points to a missing loan.');
+      }
+      if (e.incomeId != null && !incomeIds.contains(e.incomeId)) {
+        throw const FormatException('An entry points to a missing income.');
       }
       final photo = e.photo;
       if (photo != null && !isSafePhotoName(photo)) {
@@ -299,6 +318,7 @@ class BackupService {
       await _repo.replaceAll(
         bills: contents.bills,
         loans: contents.loans,
+        incomes: contents.incomes,
         entries: contents.entries,
       );
     } catch (_) {

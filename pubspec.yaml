@@ -1,7 +1,7 @@
 name: finance_tracker
 description: Personal offline finance tracker for Android.
 publish_to: none
-version: 1.6.1+1
+version: 1.7.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
