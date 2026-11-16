@@ -80,7 +80,7 @@ class DashboardPage extends StatelessWidget {
                       icon: Icons.balance_outlined,
                       value: formatPeso(s.netPosition),
                       valueColor: signColor(s.netPosition),
-                      detail: 'Cash minus owed and unpaid bills',
+                      detail: 'After loans and bills',
                     ),
                   ),
                 ],
