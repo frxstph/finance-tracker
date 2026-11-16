@@ -1,5 +1,24 @@
+import 'bill_schedule.dart';
 import 'dates.dart';
 import 'models.dart';
+
+/// One bill's status in a month: how many times it is due and paid.
+class BillStatus {
+  const BillStatus({required this.bill, required this.due, required this.paid});
+
+  final Bill bill;
+
+  /// Times due this month by its schedule.
+  final int due;
+
+  /// Payments recorded for it this month.
+  final int paid;
+
+  /// Payments still to make this month.
+  int get left => due - paid > 0 ? due - paid : 0;
+
+  int get leftAmount => left * bill.amount;
+}
 
 /// Totals for one month, following the rules in ARCHITECTURE.md §5.
 class MonthSummary {
@@ -10,7 +29,7 @@ class MonthSummary {
     required this.spent,
     required this.loanPaid,
     required this.stillOwed,
-    required this.unpaidBills,
+    required this.billStatus,
     required this.paidBillIds,
     required this.breakdown,
     required this.loanDues,
@@ -33,8 +52,18 @@ class MonthSummary {
   /// Across all loans and all time, each clamped at 0.
   final int stillOwed;
 
-  /// Active bills with no bill entry in [month].
-  final List<Bill> unpaidBills;
+  /// Bill id -> due and paid counts this month, for every active bill.
+  final Map<int, BillStatus> billStatus;
+
+  /// Active bills with payments still to make this month.
+  List<BillStatus> get billsLeft => <BillStatus>[
+        for (final st in billStatus.values)
+          if (st.left > 0) st,
+      ];
+
+  /// The bills in [billsLeft].
+  List<Bill> get unpaidBills =>
+      <Bill>[for (final st in billsLeft) st.bill];
 
   /// Ids of bills with at least one bill entry in [month].
   final Set<int> paidBillIds;
@@ -74,10 +103,10 @@ class MonthSummary {
   /// Unpaid bills plus loan payments due, for this month.
   int get leftToPayAmount => billsLeftAmount + loanDueTotal;
 
-  int get billsLeftCount => unpaidBills.length;
+  int get billsLeftCount => billsLeft.length;
 
   int get billsLeftAmount =>
-      unpaidBills.fold<int>(0, (sum, b) => sum + b.amount);
+      billsLeft.fold<int>(0, (sum, st) => sum + st.leftAmount);
 
   /// Cash minus everything owed on loans minus this month's unpaid bills.
   /// Loan payments due are not subtracted again: they are part of
@@ -191,12 +220,14 @@ MonthSummary computeSummary({
     for (final t in EntryType.values) t: 0,
   };
   final paidBillIds = <int>{};
+  final billPayments = <int, int>{};
 
   for (final e in entries) {
     if (!isInMonth(e.date, month)) continue;
     breakdown[e.type] = breakdown[e.type]! + e.amount;
     if (e.type == EntryType.bill && e.billId != null) {
       paidBillIds.add(e.billId!);
+      billPayments[e.billId!] = (billPayments[e.billId!] ?? 0) + 1;
     }
     if (e.type == EntryType.income && e.incomeId != null) {
       receivedIncomeIds.add(e.incomeId!);
@@ -222,10 +253,15 @@ MonthSummary computeSummary({
     if (due > 0 && loan.id != null) loanDues[loan.id!] = due;
   }
 
-  final unpaid = <Bill>[
+  final billStatus = <int, BillStatus>{
     for (final b in bills)
-      if (b.active && !(b.id != null && paidBillIds.contains(b.id))) b,
-  ];
+      if (b.active && b.id != null)
+        b.id!: BillStatus(
+          bill: b,
+          due: billDueCount(b, month),
+          paid: billPayments[b.id] ?? 0,
+        ),
+  };
 
   return MonthSummary(
     month: month,
@@ -234,7 +270,7 @@ MonthSummary computeSummary({
     spent: spent,
     loanPaid: loanPaid,
     stillOwed: stillOwed,
-    unpaidBills: unpaid,
+    billStatus: billStatus,
     paidBillIds: paidBillIds,
     breakdown: breakdown,
     loanDues: loanDues,
@@ -314,12 +350,14 @@ List<ForecastMonth> forecastMonths({
   for (var i = 0; i <= count; i++) {
     final month = monthKey(addMonths(start, i));
     var recorded = 0;
-    final paidBills = <int>{};
+    final billPayments = <int, int>{};
     final receivedIncomes = <int>{};
     for (final e in entries) {
       if (!isInMonth(e.date, month)) continue;
       recorded += signedAmount(e);
-      if (e.type == EntryType.bill && e.billId != null) paidBills.add(e.billId!);
+      if (e.type == EntryType.bill && e.billId != null) {
+        billPayments[e.billId!] = (billPayments[e.billId!] ?? 0) + 1;
+      }
       if (e.type == EntryType.income && e.incomeId != null) {
         receivedIncomes.add(e.incomeId!);
       }
@@ -333,9 +371,9 @@ List<ForecastMonth> forecastMonths({
     }
     var billsToPay = 0;
     for (final b in bills) {
-      if (b.active && !(b.id != null && paidBills.contains(b.id))) {
-        billsToPay += b.amount;
-      }
+      if (!b.active) continue;
+      final left = billDueCount(b, month) - (billPayments[b.id] ?? 0);
+      if (left > 0) billsToPay += left * b.amount;
     }
 
     var loanPayments = 0;

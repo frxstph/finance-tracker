@@ -172,28 +172,6 @@ Future<void> _run(BuildContext context, Future<void> Function() action) async {
   }
 }
 
-Future<void> showNewBillDialog(BuildContext context) async {
-  final state = AppScope.read(context);
-  final r = await _ask(context,
-      title: 'New bill', nameLabel: 'Name', amountLabel: 'Monthly amount');
-  if (r == null || !context.mounted) return;
-  await _run(context,
-      () => state.saveBill(Bill(name: r.name, amount: r.amount)));
-}
-
-Future<void> showEditBillDialog(BuildContext context, Bill bill) async {
-  final state = AppScope.read(context);
-  final r = await _ask(context,
-      title: 'Edit bill',
-      nameLabel: 'Name',
-      amountLabel: 'Monthly amount',
-      initialName: bill.name,
-      initialAmount: bill.amount);
-  if (r == null || !context.mounted) return;
-  await _run(context,
-      () => state.saveBill(bill.copyWith(name: r.name, amount: r.amount)));
-}
-
 Future<void> showNewIncomeDialog(BuildContext context) async {
   final state = AppScope.read(context);
   final r = await _ask(context,

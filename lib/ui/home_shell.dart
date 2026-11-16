@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'bill_form_page.dart';
 import 'bills_page.dart';
 import 'dashboard_page.dart';
 import 'entries_page.dart';
@@ -73,8 +74,8 @@ class _HomeShellState extends State<HomeShell> {
             ),
             ListTile(
               leading: Icon(Icons.receipt_long, color: billsColor(context)),
-              title: const Text('Monthly bill'),
-              subtitle: const Text('Goes out every month'),
+              title: const Text('Bill'),
+              subtitle: const Text('Monthly, weekly, daily or one time'),
               onTap: () => Navigator.of(sheetContext).pop(1),
             ),
             const SizedBox(height: 8),
@@ -86,7 +87,7 @@ class _HomeShellState extends State<HomeShell> {
     if (choice == 0) {
       await showNewIncomeDialog(context);
     } else {
-      await showNewBillDialog(context);
+      await showNewBillForm(context);
     }
   }
 

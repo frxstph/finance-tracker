@@ -98,6 +98,11 @@ class AppState extends ChangeNotifier {
   int loanPaymentSuggestion(Loan loan) =>
       suggestedLoanPayment(loan, loanDueOf(loan), loanBalanceOf(loan));
 
+  /// Due and paid counts for [bill] in the selected month, or null when it
+  /// is archived.
+  BillStatus? billStatusOf(Bill bill) =>
+      bill.id == null ? null : _summary.billStatus[bill.id];
+
   Bill? billById(int? id) {
     if (id == null) return null;
     for (final b in _bills) {

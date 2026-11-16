@@ -19,6 +19,8 @@ you stand this month.
   can keep a photo of its agreement or IOU.
 - **Pay amounts fill themselves**: pick a loan and the amount due this month
   is filled in; pick a bill and its monthly amount is.
+- **Bills on any schedule**: monthly, weekly, daily or one time, optionally
+  for a set number of payments (e.g. weekly, 6 times).
 - **Monthly income** on a set day (salary every 19th, pay on the 15th) with a
   Receive button, next to monthly bills on the Monthly tab.
 - **Entries list filters**: income, spending, one-time, loan payments, for

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../domain/money.dart';
 import '../state/app_state.dart';
+import '../domain/bill_schedule.dart';
+import '../domain/summary.dart';
+import 'bill_form_page.dart';
 import 'pay_pages.dart';
 import 'theme.dart';
 import 'widgets/dialogs.dart';
@@ -63,7 +66,6 @@ class BillsPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.add),
             title: const Text('Add monthly income'),
-            subtitle: const Text('Salary on the 19th, pay on the 15th…'),
             onTap: () => showNewIncomeDialog(context),
           ),
         if (archivedIncomes.isNotEmpty)
@@ -79,32 +81,31 @@ class BillsPage extends StatelessWidget {
         // Bills
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          child: Text('Monthly bills', style: sectionStyle),
+          child: Text('Bills', style: sectionStyle),
         ),
         if (active.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
             child: Text(
               s.billsLeftCount == 0
-                  ? 'All bills paid this month'
-                  : '${s.billsLeftCount} left · ${formatPeso(s.billsLeftAmount)}',
+                  ? 'Nothing left to pay this month'
+                  : '${s.billsLeftCount} to pay · ${formatPeso(s.billsLeftAmount)}',
               style: noteStyle,
             ),
           ),
         for (final b in active)
-          _BillTile(bill: b, paid: b.id != null && s.paidBillIds.contains(b.id)),
+          _BillTile(bill: b, status: state.billStatusOf(b)),
         if (active.isEmpty)
           ListTile(
             leading: const Icon(Icons.add),
-            title: const Text('Add a monthly bill'),
-            subtitle: const Text('Rent, electricity, internet…'),
-            onTap: () => showNewBillDialog(context),
+            title: const Text('Add a bill'),
+            onTap: () => showNewBillForm(context),
           ),
         if (archived.isNotEmpty)
           ExpansionTile(
             title: Text('Archived bills (${archived.length})'),
             children: <Widget>[
-              for (final b in archived) _BillTile(bill: b, paid: false),
+              for (final b in archived) _BillTile(bill: b, status: null),
             ],
           ),
       ],
@@ -211,13 +212,27 @@ class _IncomeTile extends StatelessWidget {
 }
 
 class _BillTile extends StatelessWidget {
-  const _BillTile({required this.bill, required this.paid});
+  const _BillTile({required this.bill, required this.status});
 
   final Bill bill;
-  final bool paid;
+
+  /// This month's due and paid counts; null when archived.
+  final BillStatus? status;
 
   void _pay(BuildContext context) {
     showPayBill(context, bill);
+  }
+
+  /// "₱500 a week · 2 of 4 paid", "₱3,000 a month", "… · Starts Jan 2027".
+  String _statusLine(BillStatus? st, String month) {
+    final schedule = billSubtitle(bill);
+    if (!bill.active || st == null) return schedule;
+    if (st.due == 0) {
+      final why = billNotDueReason(bill, month);
+      return why == null ? schedule : '$schedule · $why';
+    }
+    if (st.due > 1) return '$schedule · ${st.paid} of ${st.due} paid';
+    return schedule;
   }
 
   Future<void> _onAction(BuildContext context, _BillAction action) async {
@@ -225,7 +240,7 @@ class _BillTile extends StatelessWidget {
     try {
       switch (action) {
         case _BillAction.edit:
-          await showEditBillDialog(context, bill);
+          await showEditBillForm(context, bill);
         case _BillAction.archive:
           await state.setBillActive(bill, false);
         case _BillAction.unarchive:
@@ -253,10 +268,12 @@ class _BillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final st = status;
+    final month = AppScope.of(context).monthKeyValue;
     final Widget trailingState;
-    if (!bill.active) {
+    if (!bill.active || st == null || st.due == 0) {
       trailingState = const SizedBox.shrink();
-    } else if (paid) {
+    } else if (st.left == 0) {
       trailingState = Chip(
         avatar: Icon(Icons.check, size: 16, color: incomeColor(context)),
         label: const Text('Paid'),
@@ -272,12 +289,12 @@ class _BillTile extends StatelessWidget {
     return ListTile(
       title: Text(bill.name),
       subtitle: Text(
-        '${formatPeso(bill.amount)} a month',
+        _statusLine(st, month),
         style: theme.textTheme.bodyMedium?.copyWith(
           fontFeatures: tabularFigures,
         ),
       ),
-      onTap: () => showEditBillDialog(context, bill),
+      onTap: () => showEditBillForm(context, bill),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[

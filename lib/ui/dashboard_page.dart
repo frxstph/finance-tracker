@@ -135,7 +135,7 @@ class _NowCards extends StatelessWidget {
         icon: Icons.account_balance_wallet_outlined,
         value: formatPeso(s.cash),
         valueColor: _signColor(context, s.cash),
-        detail: 'Started month with ${formatPeso(s.openingCash)}',
+        detail: 'Running balance',
       ),
       StatCard(
         label: 'Still owed',

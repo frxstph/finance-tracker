@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-const int schemaVersion = 4;
+const int schemaVersion = 5;
 const String databaseFileName = 'finance.db';
 
 const List<String> _schemaV1 = <String>[
@@ -62,6 +62,14 @@ CREATE TABLE incomes (
   'ALTER TABLE entries ADD COLUMN income_id INTEGER REFERENCES incomes(id)',
 ];
 
+/// Version 5: bills get a schedule. Old bills stay monthly with no end and
+/// no start date.
+const List<String> _upgradeToV5 = <String>[
+  "ALTER TABLE bills ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'",
+  'ALTER TABLE bills ADD COLUMN times INTEGER',
+  'ALTER TABLE bills ADD COLUMN start_date TEXT',
+];
+
 /// Opens (and creates on first run) the app database.
 Future<Database> openAppDatabase() async {
   final dir = await getDatabasesPath();
@@ -84,6 +92,9 @@ Future<Database> openAppDatabase() async {
       for (final sql in _upgradeToV4) {
         await db.execute(sql);
       }
+      for (final sql in _upgradeToV5) {
+        await db.execute(sql);
+      }
     },
     onUpgrade: (Database db, int oldVersion, int newVersion) async {
       if (oldVersion < 2) {
@@ -98,6 +109,11 @@ Future<Database> openAppDatabase() async {
       }
       if (oldVersion < 4) {
         for (final sql in _upgradeToV4) {
+          await db.execute(sql);
+        }
+      }
+      if (oldVersion < 5) {
+        for (final sql in _upgradeToV5) {
           await db.execute(sql);
         }
       }

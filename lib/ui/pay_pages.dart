@@ -56,6 +56,19 @@ Future<void> showReceiveIncome(BuildContext context, IncomeSource source) {
   );
 }
 
+/// "Monthly bill · November 2026", "Weekly bill · 3 of 4 this month".
+String _billWhat(AppState state, Bill bill) {
+  final st = state.billStatusOf(bill);
+  final kind = '${bill.frequency.label} bill';
+  if (st == null || st.due <= 1) {
+    return bill.frequency == BillFrequency.once
+        ? 'One-time bill'
+        : '$kind · ${monthLabel(state.month)}';
+  }
+  final next = st.paid + 1 > st.due ? st.due : st.paid + 1;
+  return '$kind · $next of ${st.due} this month';
+}
+
 /// Pay [bill] for the selected month: its usual amount, photo, confirm.
 Future<void> showPayBill(BuildContext context, Bill bill) {
   final state = AppScope.read(context);
@@ -63,7 +76,7 @@ Future<void> showPayBill(BuildContext context, Bill bill) {
     context,
     ConfirmPaymentPage(
       title: 'Pay ${bill.name}',
-      what: 'Monthly bill · ${monthLabel(state.month)}',
+      what: _billWhat(state, bill),
       initialAmount: bill.amount,
       initialDate: _defaultPayDate(state),
       photoLabel: 'Add photo of receipt',

@@ -12,11 +12,12 @@ import '../domain/models.dart';
 import 'photos.dart';
 import 'repository.dart';
 
-const int backupVersion = 3;
+const int backupVersion = 4;
 
 /// Backup versions this app can restore. Version 1 has no loan plans; its
 /// loans read as "pay in full". Versions 1 and 2 have no monthly incomes.
-const Set<int> _readableVersions = <int>{1, 2, 3};
+/// Versions 1 to 3 have no bill schedules: their bills read as monthly.
+const Set<int> _readableVersions = <int>{1, 2, 3, 4};
 const String _dataFileName = 'data.json';
 const String _receiptsPrefix = 'receipts/';
 
@@ -253,7 +254,14 @@ class BackupService {
     }
 
     for (final b in bills) {
-      if (b.amount < 0) throw const FormatException('A bill has a bad amount.');
+      final start = b.startDate;
+      final times = b.times;
+      if (b.amount < 0 ||
+          (start != null && !isValidDateKey(start)) ||
+          (times != null && times < 1) ||
+          (start == null && b.frequency != BillFrequency.monthly)) {
+        throw const FormatException('A bill has bad data.');
+      }
     }
     for (final l in loans) {
       if (l.principal < 0 ||

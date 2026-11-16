@@ -71,29 +71,79 @@ String _str(Object? v, String field) {
   throw FormatException('Field "$field" must be text');
 }
 
+/// How often a bill comes around.
+enum BillFrequency {
+  monthly('monthly', 'Monthly', 'a month'),
+  weekly('weekly', 'Weekly', 'a week'),
+  daily('daily', 'Daily', 'a day'),
+  once('once', 'One time', 'once');
+
+  const BillFrequency(this.dbValue, this.label, this.per);
+
+  final String dbValue;
+  final String label;
+
+  /// "₱500 a week", "₱3,000 once".
+  final String per;
+
+  static BillFrequency fromDb(String value) {
+    for (final f in BillFrequency.values) {
+      if (f.dbValue == value) return f;
+    }
+    throw FormatException('Unknown bill frequency: $value');
+  }
+}
+
 class Bill {
   const Bill({
     this.id,
     required this.name,
     required this.amount,
     this.active = true,
+    this.frequency = BillFrequency.monthly,
+    this.times,
+    this.startDate,
   });
 
   final int? id;
   final String name;
 
-  /// Expected monthly amount in centavos.
+  /// Amount each time it is due, in centavos.
   final int amount;
 
   /// False when archived.
   final bool active;
 
-  Bill copyWith({int? id, String? name, int? amount, bool? active}) {
+  final BillFrequency frequency;
+
+  /// How many times it is paid in all, or null for no end. Not used for
+  /// [BillFrequency.once].
+  final int? times;
+
+  /// "yyyy-MM-dd": the first time it is due (the due date for a one-time
+  /// bill). Null only for monthly bills made before schedules existed: those
+  /// are due every month.
+  final String? startDate;
+
+  Bill copyWith({
+    int? id,
+    String? name,
+    int? amount,
+    bool? active,
+    BillFrequency? frequency,
+    int? times,
+    bool clearTimes = false,
+    String? startDate,
+    bool clearStartDate = false,
+  }) {
     return Bill(
       id: id ?? this.id,
       name: name ?? this.name,
       amount: amount ?? this.amount,
       active: active ?? this.active,
+      frequency: frequency ?? this.frequency,
+      times: clearTimes ? null : (times ?? this.times),
+      startDate: clearStartDate ? null : (startDate ?? this.startDate),
     );
   }
 
@@ -103,15 +153,26 @@ class Bill {
       'name': name,
       'amount': amount,
       'active': active ? 1 : 0,
+      'frequency': frequency.dbValue,
+      'times': times,
+      'start_date': startDate,
     };
   }
 
+  /// Rows from before schedules existed read as monthly, no end, no start.
   factory Bill.fromMap(Map<String, Object?> map) {
+    final freq = map['frequency'];
+    final start = map['start_date'];
     return Bill(
       id: _intOrNull(map['id'], 'id'),
       name: _str(map['name'], 'name'),
       amount: _int(map['amount'], 'amount'),
       active: _int(map['active'] ?? 1, 'active') != 0,
+      frequency: freq == null
+          ? BillFrequency.monthly
+          : BillFrequency.fromDb(_str(freq, 'frequency')),
+      times: _intOrNull(map['times'], 'times'),
+      startDate: start == null ? null : _str(start, 'start_date'),
     );
   }
 }

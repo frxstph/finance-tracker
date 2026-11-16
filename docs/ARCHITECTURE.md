@@ -351,3 +351,26 @@ made). End cash, loans owed after those payments, and net position = end
 cash − owed after. Months before the current one have no forecast; the
 dashboard says so and shows the actual numbers. A "How it adds up" card
 lists the sum.
+
+## 18. v1.8 changes (bill schedules)
+
+Schema v5 adds to `bills`: `frequency TEXT NOT NULL DEFAULT 'monthly'`
+(`monthly` | `weekly` | `daily` | `once`), `times INTEGER` (null = no end),
+`start_date TEXT` (yyyy-MM-dd; null only for monthly bills made before
+v1.8, which stay due every month). `amount` is the amount each time.
+
+**Times due in month M** (`billDueCount`, lib/domain/bill_schedule.dart):
+monthly = 1 from the start month, for `times` months; weekly/daily = every
+7 days / every day from the start date that falls in M, up to `times`
+payments in all; once = 1 in the due date's month. **Paid** = number of bill
+entries for it in M. Left = due − paid (not below 0); left amount = left ×
+amount. "Left to pay", net position and the forecast all use this.
+
+Bill form (full screen): name, amount each time, How often chips, first
+payment / due date, "Only a set number of times" + count, and a preview
+line. List rows: "₱500 a week · 6 times · 2 of 5 paid"; when nothing is due:
+"Starts Jan 2027", "Due Dec 2026", "Finished" or "Not this month". Backup
+version 4 (1–3 still restore; their bills read as monthly).
+
+Also: the empty-row hints on the Monthly tab are gone, and cash on hand's
+detail line reads "Running balance".
