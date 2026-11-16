@@ -214,7 +214,9 @@ class _LoanCard extends StatelessWidget {
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               fontFeatures: tabularFigures,
-                              color: done ? green : debtColor(context),
+                              color: done
+                                  ? green
+                                  : theme.colorScheme.onSurface,
                             ),
                           ),
                         ),

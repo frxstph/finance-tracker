@@ -378,7 +378,7 @@ detail line reads "Running balance".
 ## 19. v1.8.1 (loan card layout)
 
 Loan cards read top to bottom in four bands: name with Pay and the menu;
-the balance as one large number (red, green when paid off) with "left of
+the balance as one large number (dark text, green when paid off) with "left of
 ₱total"; the progress bar with "₱paid paid · n of m paid" and "₱x / month"
 under it; then a colored status pill (orange "Due this month · ₱x", grey
 "Starts …", green "Nothing due this month" / "Paid off") beside the date
