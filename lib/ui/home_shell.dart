@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'accounts_page.dart';
 import 'bill_form_page.dart';
+import 'calculator_page.dart';
 import 'bills_page.dart';
 import 'dashboard_page.dart';
 import 'entries_page.dart';
@@ -50,6 +51,11 @@ class _HomeShellState extends State<HomeShell> {
   List<Widget> _actions() {
     if (_index != 0) return const <Widget>[];
     return <Widget>[
+      IconButton(
+        tooltip: 'Calculator',
+        icon: const Icon(Icons.calculate_outlined),
+        onPressed: () => showCalculator(context),
+      ),
       IconButton(
         tooltip: 'My accounts and QR codes',
         icon: const Icon(Icons.qr_code_2),

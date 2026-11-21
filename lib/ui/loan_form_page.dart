@@ -12,12 +12,15 @@ import 'widgets/amount_field.dart';
 import 'widgets/dialogs.dart';
 import 'widgets/photo_section.dart';
 
-/// Opens the form to add a new loan.
-Future<void> showNewLoanForm(BuildContext context) {
+/// Opens the form to add a new loan, optionally filled in with a total and
+/// a number of monthly payments (from the loan calculator).
+Future<void> showNewLoanForm(BuildContext context,
+    {int? principal, int? months}) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
-      builder: (_) => const LoanFormPage(),
+      builder: (_) =>
+          LoanFormPage(initialPrincipal: principal, initialMonths: months),
     ),
   );
 }
@@ -35,9 +38,20 @@ Future<void> showEditLoanForm(BuildContext context, Loan loan) {
 /// Add or edit a loan: name, total owed, how it's paid back, and (for a new
 /// loan) whether the money goes into this month's cash.
 class LoanFormPage extends StatefulWidget {
-  const LoanFormPage({super.key, this.existing});
+  const LoanFormPage({
+    super.key,
+    this.existing,
+    this.initialPrincipal,
+    this.initialMonths,
+  });
 
   final Loan? existing;
+
+  /// Pre-fills a new loan's total owed, in centavos.
+  final int? initialPrincipal;
+
+  /// Pre-fills a new loan as monthly over this many months.
+  final int? initialMonths;
 
   @override
   State<LoanFormPage> createState() => _LoanFormPageState();
@@ -64,6 +78,15 @@ class _LoanFormPageState extends State<LoanFormPage> {
   @override
   void initState() {
     super.initState();
+    final p = widget.initialPrincipal;
+    if (widget.existing == null && p != null && p > 0) {
+      _amount.text = centavosToInput(p);
+    }
+    final m = widget.initialMonths;
+    if (widget.existing == null && m != null && m > 0) {
+      _plan = LoanPlan.monthly;
+      _months.text = '$m';
+    }
     final l = widget.existing;
     if (l != null) {
       _name.text = l.name;

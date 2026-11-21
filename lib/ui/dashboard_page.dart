@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../domain/models.dart';
 import '../domain/money.dart';
+import '../domain/calc.dart';
 import '../domain/dates.dart';
 import '../domain/summary.dart';
 import '../domain/weeks.dart';
@@ -79,11 +80,145 @@ class _DashboardPageState extends State<DashboardPage> {
             month: forecast.month,
             blocks: state.weeksFor(forecast),
           ),
-        ] else
+        ] else ...<Widget>[
+          if (state.monthKeyValue == state.currentMonthKey)
+            _SafeToSpendCard(s: state.safeToSpendNow),
           const _NowCards(),
+        ],
         const SizedBox(height: 8),
         const _BreakdownCard(),
       ],
+    );
+  }
+}
+
+/// "Safe to spend: ₱650 a day until payday", tap for how it is worked out.
+class _SafeToSpendCard extends StatelessWidget {
+  const _SafeToSpendCard({required this.s});
+
+  final SafeToSpend s;
+
+  String _until() {
+    final when = dayLabel(s.payday);
+    final days = '${s.days} ${s.days == 1 ? 'day' : 'days'}';
+    final name = s.paydayName;
+    return name == null
+        ? 'until $when, end of month · $days'
+        : 'until $name on $when · $days';
+  }
+
+  void _explain(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        Widget line(String label, String value, {Color? color, bool bold = false}) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: <Widget>[
+                Expanded(child: Text(label)),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontFeatures: tabularFigures,
+                    color: color,
+                    fontWeight: bold ? FontWeight.w700 : null,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return AlertDialog(
+          title: const Text('Safe to spend'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              line('Cash now', formatPeso(s.cashNow),
+                  color: balanceColor(dialogContext, s.cashNow)),
+              line('Due before payday', signedPeso(-s.dueBeforePayday),
+                  color: flowColor(dialogContext, -s.dueBeforePayday)),
+              const Divider(),
+              line('Free to use', formatPeso(s.free),
+                  color: balanceColor(dialogContext, s.free), bold: true),
+              line('Days until payday', '${s.days}'),
+              const Divider(),
+              line('Each day', formatPeso(s.perDay),
+                  color: s.perDay > 0 ? incomeColor(dialogContext) : null,
+                  bold: true),
+              const SizedBox(height: 12),
+              Text(
+                'Bills and loan payments due before payday are set aside '
+                'first. Overdue ones count as due today. Add your monthly '
+                'income and due days so this stays accurate.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final short = s.free < 0;
+    final color = short ? debtColor(context) : incomeColor(context);
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _explain(context),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          child: Row(
+            children: <Widget>[
+              Icon(Icons.savings_outlined, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Safe to spend', style: theme.textTheme.labelLarge),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        short
+                            ? 'Short by ${formatPeso(-s.free)}'
+                            : '${formatPeso(s.perDay)} a day',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: tabularFigures,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _until(),
+                      style: theme.textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

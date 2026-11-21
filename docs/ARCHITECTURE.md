@@ -423,3 +423,34 @@ at a point in time) are dark bold text, red only below ₱0
 with a labelled "Cash after" line; "How it adds up" and the "This month"
 breakdown follow the same rule, and the breakdown ends with "Net this
 month". The four stat cards keep their own colors.
+
+## 22. v1.10 changes (calculator, money tools, safe to spend)
+
+All math is pure Dart in lib/domain/calc.dart, unit tested.
+
+**Calculator** (calculator icon on the Dashboard). `evaluateExpression`:
++ − × ÷ (× ÷ first), leading or after-× minus, postfix % (÷100), commas
+ignored; null for unfinished lines or ÷0. Keypad C ⌫ % ÷ / 7–9 × / 4–6 − /
+1–3 + / 00 0 . =; the last 10 results stay for the session (tap to reuse).
+"Use ₱x in a new entry" opens Add entry with the amount.
+
+**Loan tab.** `quoteLoan`: add-on (% a month on the full amount every
+month: interest = P × r × n, payment = ⌈total ÷ n⌉) or yearly reducing
+balance (standard amortization, payment rounded up to the centavo).
+Shows each month, total, interest; "Add as a loan" opens the loan form
+filled in with the total and months.
+
+**Split tab.** Even split; any leftover centavos go to one person.
+
+**Afford tab.** `canAfford`: takes the amount out of every week block from
+the purchase date to the end of the next month in "If all paid" and
+reports the lowest block-end cash (and where), plus month-end cash.
+Affordable when the lowest stays at or above ₱0.
+
+**Safe to spend** (Dashboard, "Now", current month only). Payday = the
+earliest monthly income still to come (this month if on or after today and
+not yet received, else next month); none set → end of month. Set aside =
+every bill and loan payment the week blocks place before payday (overdue
+count today) plus anything recorded after today in that window. Per day =
+(cash up to today − set aside) ÷ days from today to payday (today counts,
+at least 1); shows "Short by ₱x" when negative. Tap for the breakdown.

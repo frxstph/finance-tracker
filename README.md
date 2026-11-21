@@ -21,6 +21,10 @@ you stand this month.
   is filled in; pick a bill and its monthly amount is.
 - **Bills on any schedule**: monthly, weekly, daily or one time, optionally
   for a set number of payments (e.g. weekly, 6 times).
+- **Safe to spend**: what you can spend each day until payday, after setting
+  aside every bill and loan payment due before it.
+- **Calculator** with history, plus a loan calculator (add-on or yearly
+  interest), bill splitter and "Can I afford this?" check.
 - **Adjustments and "Count my cash"**: correct cash up or down without it
   counting as income or spending.
 - **Sums in amount boxes**: type 450+120+35 and the total is used.

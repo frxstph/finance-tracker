@@ -7,6 +7,7 @@ import '../data/photos.dart';
 import '../data/repository.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
+import '../domain/calc.dart';
 import '../domain/summary.dart';
 import '../domain/weeks.dart';
 
@@ -72,6 +73,26 @@ class AppState extends ChangeNotifier {
         loans: _loans,
         incomes: _incomes,
         today: DateTime.now(),
+      );
+
+  /// "Can I afford this?" for [amount] centavos on [date].
+  AffordResult affordCheck(int amount, DateTime date) => canAfford(
+        amount: amount,
+        date: date,
+        today: DateTime.now(),
+        entries: _entries,
+        bills: _bills,
+        loans: _loans,
+        incomes: _incomes,
+      );
+
+  /// What can be spent each day until the next payday.
+  SafeToSpend get safeToSpendNow => safeToSpend(
+        today: DateTime.now(),
+        entries: _entries,
+        bills: _bills,
+        loans: _loans,
+        incomes: _incomes,
       );
 
   /// Cash right now: everything recorded up to and including today.
