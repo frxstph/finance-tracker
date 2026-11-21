@@ -413,3 +413,13 @@ payment the forecast expects on the loan's due day. Overdue items or items
 without a due day count on today (current month) or the 1st (later
 months). Block end cash chains; the last equals the forecast's end cash.
 The card warns about the first upcoming block that ends below ₱0.
+
+## 21. v1.9.1 (one color rule)
+
+Lists use one rule: money in green with "+", money out red with "−" (true
+minus sign), zero muted grey (`flowColor`, `signedPeso`). Balances (cash
+at a point in time) are dark bold text, red only below ₱0
+(`balanceColor`). Week blocks show the date range as the heading and end
+with a labelled "Cash after" line; "How it adds up" and the "This month"
+breakdown follow the same rule, and the breakdown ends with "Net this
+month". The four stat cards keep their own colors.

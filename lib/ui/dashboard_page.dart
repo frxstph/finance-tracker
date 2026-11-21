@@ -225,15 +225,19 @@ class _ForecastSteps extends StatelessWidget {
         theme.textTheme.bodyLarge?.copyWith(fontFeatures: tabularFigures);
     final bold = style?.copyWith(fontWeight: FontWeight.w600);
 
+    // A flow line (+ green / − red) or, with balance, a dark total.
     Widget row(String label, int amount,
-        {Color? color, bool strong = false, bool signed = true}) {
-      final sign = signed && amount > 0 ? '+' : '';
+        {bool strong = false, bool balance = false}) {
       return ListTile(
         dense: true,
         title: Text(label, style: strong ? bold : null),
         trailing: Text(
-          '$sign${formatPeso(amount)}',
-          style: (strong ? bold : style)?.copyWith(color: color),
+          balance ? formatPeso(amount) : signedPeso(amount),
+          style: (strong ? bold : style)?.copyWith(
+            color: balance
+                ? balanceColor(context, amount)
+                : flowColor(context, amount),
+          ),
         ),
       );
     }
@@ -251,18 +255,14 @@ class _ForecastSteps extends StatelessWidget {
             ),
             row(projectedStart ? 'Cash at start (forecast)' : 'Cash at start',
                 f.startCash,
-                signed: false),
+                balance: true),
             if (f.recorded != 0)
               row('Already recorded this month', f.recorded),
-            row('Income still to come', f.incomeToCome,
-                color: incomeColor(context)),
-            row('Bills to pay', -f.billsToPay, color: billsColor(context)),
-            row('Loan payments', -f.loanPayments, color: debtColor(context)),
+            row('Income still to come', f.incomeToCome),
+            row('Bills to pay', -f.billsToPay),
+            row('Loan payments', -f.loanPayments),
             const Divider(indent: 16, endIndent: 16),
-            row('Cash at month end', f.endCash,
-                color: _signColor(context, f.endCash),
-                strong: true,
-                signed: false),
+            row('Cash at month end', f.endCash, strong: true, balance: true),
           ],
         ),
       ),
@@ -294,18 +294,6 @@ class _WeekBlocksCard extends StatelessWidget {
       }
     }
 
-    Color itemColor(WeekItem i) {
-      switch (i.kind) {
-        case WeekItemKind.income:
-          return incomeColor(context);
-        case WeekItemKind.bill:
-          return billsColor(context);
-        case WeekItemKind.loan:
-          return debtColor(context);
-      }
-    }
-
-    String signed(int v) => '${v > 0 ? '+' : ''}${formatPeso(v)}';
 
     final children = <Widget>[
       Padding(
@@ -351,39 +339,25 @@ class _WeekBlocksCard extends StatelessWidget {
         color: b.past ? muted : null,
       );
       children.add(Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                '${b.firstDay}–${b.lastDay} $monthShort${b.past ? ' · done' : ''}',
-                style: headerStyle,
-              ),
-            ),
-            Text(
-              formatPeso(b.endCash),
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontFeatures: tabularFigures,
-                color: _signColor(context, b.endCash),
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        child: Text(
+          '${b.firstDay}–${b.lastDay} $monthShort${b.past ? ' · done' : ''}',
+          style: headerStyle,
         ),
       ));
       final rows = <Widget>[
         if (b.recorded != 0)
-          _weekRow(context, 'Already recorded', signed(b.recorded), small,
-              null),
+          _weekRow(context, 'Already recorded', signedPeso(b.recorded), small,
+              flowColor(context, b.recorded)),
         for (final item in b.items)
           _weekRow(
             context,
             item.dayKnown
                 ? '${ordinalDay(item.day)} · ${item.label}'
                 : '${item.label} · no due day',
-            signed(item.amount),
+            signedPeso(item.amount),
             small,
-            itemColor(item),
+            flowColor(context, item.amount),
           ),
       ];
       if (rows.isEmpty) {
@@ -393,6 +367,27 @@ class _WeekBlocksCard extends StatelessWidget {
         ));
       }
       children.addAll(rows);
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                'Cash after',
+                style: small?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Text(
+              formatPeso(b.endCash),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontFeatures: tabularFigures,
+                color: balanceColor(context, b.endCash),
+              ),
+            ),
+          ],
+        ),
+      ));
     }
     children.add(const SizedBox(height: 8));
 
@@ -461,6 +456,23 @@ class _BreakdownCard extends StatelessWidget {
     }
   }
 
+  Widget _flowTile(
+      BuildContext context, IconData icon, String label, int signed) {
+    final theme = Theme.of(context);
+    return ListTile(
+      dense: true,
+      leading: Icon(icon),
+      title: Text(label),
+      trailing: Text(
+        signedPeso(signed),
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontFeatures: tabularFigures,
+          color: flowColor(context, signed),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context).summary;
@@ -479,25 +491,29 @@ class _BreakdownCard extends StatelessWidget {
               child: Text('This month', style: theme.textTheme.titleSmall),
             ),
             for (final t in _order)
-              ListTile(
-                dense: true,
-                leading: Icon(iconForType(t)),
-                title: Text(_label(t)),
-                trailing: Text(
-                  formatPeso(s.breakdown[t] ?? 0),
-                  style: amountStyle,
-                ),
+              _flowTile(
+                context,
+                iconForType(t),
+                _label(t),
+                t.isMoneyIn ? (s.breakdown[t] ?? 0) : -(s.breakdown[t] ?? 0),
               ),
             if (s.adjustments != 0)
-              ListTile(
-                dense: true,
-                leading: Icon(iconForType(EntryType.adjustIn)),
-                title: Text(_label(EntryType.adjustIn)),
-                trailing: Text(
-                  '${s.adjustments > 0 ? '+' : ''}${formatPeso(s.adjustments)}',
-                  style: amountStyle,
+              _flowTile(context, iconForType(EntryType.adjustIn),
+                  _label(EntryType.adjustIn), s.adjustments),
+            const Divider(indent: 16, endIndent: 16),
+            ListTile(
+              dense: true,
+              title: Text('Net this month',
+                  style: theme.textTheme.bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              trailing: Text(
+                signedPeso(s.monthChange),
+                style: amountStyle?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: flowColor(context, s.monthChange),
                 ),
               ),
+            ),
           ],
         ),
       ),

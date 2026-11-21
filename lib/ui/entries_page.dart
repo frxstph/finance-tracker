@@ -94,7 +94,6 @@ class _EntriesPageState extends State<EntriesPage> {
         return incomeColor(context);
       case EntryFilter.spending:
       case EntryFilter.oneTime:
-        return billsColor(context);
       case EntryFilter.loans:
         return debtColor(context);
       case EntryFilter.all:
