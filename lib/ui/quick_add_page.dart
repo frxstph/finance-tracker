@@ -351,6 +351,35 @@ class _QuickAddPageState extends State<QuickAddPage> {
               onChanged: (id) => _onBillChosen(state, id),
             ),
         ];
+      case EntryType.adjustIn:
+      case EntryType.adjustOut:
+        return <Widget>[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: <Widget>[
+              ChoiceChip(
+                avatar: const Icon(Icons.add, size: 18),
+                label: const Text('Add to cash'),
+                selected: _type == EntryType.adjustIn,
+                onSelected: (_) =>
+                    setState(() => _type = EntryType.adjustIn),
+              ),
+              ChoiceChip(
+                avatar: const Icon(Icons.remove, size: 18),
+                label: const Text('Take from cash'),
+                selected: _type == EntryType.adjustOut,
+                onSelected: (_) =>
+                    setState(() => _type = EntryType.adjustOut),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Fixes your cash without counting as income or spending.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ];
       case EntryType.loanPayment:
       case EntryType.loanReceived:
         final paying = _type == EntryType.loanPayment;

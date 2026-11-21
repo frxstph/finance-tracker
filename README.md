@@ -21,6 +21,13 @@ you stand this month.
   is filled in; pick a bill and its monthly amount is.
 - **Bills on any schedule**: monthly, weekly, daily or one time, optionally
   for a set number of payments (e.g. weekly, 6 times).
+- **Adjustments and "Count my cash"**: correct cash up or down without it
+  counting as income or spending.
+- **Sums in amount boxes**: type 450+120+35 and the total is used.
+- **My accounts**: your GCash, BPI or Maya QR codes and account details,
+  ready to show, copy or share.
+- **Week by week** in "If all paid": days 1–7, 8–14, 15–21 and 22–end, with a
+  warning for a week that runs short.
 - **Monthly income** on a set day (salary every 19th, pay on the 15th) with a
   Receive button, next to monthly bills on the Monthly tab.
 - **Entries list filters**: income, spending, one-time, loan payments, for

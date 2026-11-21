@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'accounts_page.dart';
 import 'bill_form_page.dart';
 import 'bills_page.dart';
 import 'dashboard_page.dart';
@@ -49,6 +50,11 @@ class _HomeShellState extends State<HomeShell> {
   List<Widget> _actions() {
     if (_index != 0) return const <Widget>[];
     return <Widget>[
+      IconButton(
+        tooltip: 'My accounts and QR codes',
+        icon: const Icon(Icons.qr_code_2),
+        onPressed: () => showAccountsPage(context),
+      ),
       IconButton(
         tooltip: 'Settings',
         icon: const Icon(Icons.settings_outlined),

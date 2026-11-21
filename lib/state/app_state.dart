@@ -8,6 +8,7 @@ import '../data/repository.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
 import '../domain/summary.dart';
+import '../domain/weeks.dart';
 
 /// Thrown for actions the rules forbid (e.g. deleting a bill with entries).
 class ActionNotAllowed implements Exception {
@@ -43,6 +44,7 @@ class AppState extends ChangeNotifier {
   List<Bill> _bills = const <Bill>[];
   List<Loan> _loans = const <Loan>[];
   List<IncomeSource> _incomes = const <IncomeSource>[];
+  List<PayAccount> _accounts = const <PayAccount>[];
   List<Entry> _entries = const <Entry>[];
   MonthSummary _summary = MonthSummary.empty(monthKey(DateTime.now()));
   Map<int, int> _loanTotals = const <int, int>{};
@@ -56,10 +58,47 @@ class AppState extends ChangeNotifier {
   List<Bill> get archivedBills => _bills.where((b) => !b.active).toList();
   List<Loan> get loans => _loans;
   List<IncomeSource> get incomes => _incomes;
+  List<PayAccount> get accounts => _accounts;
   List<IncomeSource> get activeIncomes =>
       _incomes.where((i) => i.active).toList();
   List<IncomeSource> get archivedIncomes =>
       _incomes.where((i) => !i.active).toList();
+
+  /// [f] split into the fixed blocks 1–7, 8–14, 15–21 and 22–end.
+  List<WeekBlock> weeksFor(ForecastMonth f) => weekBlocks(
+        forecast: f,
+        entries: _entries,
+        bills: _bills,
+        loans: _loans,
+        incomes: _incomes,
+        today: DateTime.now(),
+      );
+
+  /// Cash right now: everything recorded up to and including today.
+  int get cashNow {
+    final today = todayKey();
+    var total = 0;
+    for (final e in _entries) {
+      if (e.date.compareTo(today) <= 0) total += signedAmount(e);
+    }
+    return total;
+  }
+
+  /// Records the difference between [actual] cash and [cashNow] as an
+  /// adjustment dated today, so the app matches the wallet. Returns the
+  /// signed difference; 0 means it already matched and nothing was added.
+  Future<int> countCash(int actual) async {
+    final diff = actual - cashNow;
+    if (diff == 0) return 0;
+    await saveEntry(Entry(
+      type: diff > 0 ? EntryType.adjustIn : EntryType.adjustOut,
+      amount: diff.abs(),
+      note: 'Cash count',
+      date: todayKey(),
+      createdAt: DateTime.now().toIso8601String(),
+    ));
+    return diff;
+  }
 
   /// The month that holds today.
   String get currentMonthKey => monthKey(DateTime.now());
@@ -165,6 +204,7 @@ class AppState extends ChangeNotifier {
     _bills = await _repo.bills();
     _loans = await _repo.loans();
     _incomes = await _repo.incomes();
+    _accounts = await _repo.accounts();
     _entries = await _repo.entries();
     _loaded = true;
     _recompute();
@@ -287,6 +327,60 @@ class AppState extends ChangeNotifier {
   Future<void> _reloadBills() async {
     _bills = await _repo.bills();
     _recompute();
+  }
+
+  // Payment accounts (QR codes)
+
+  /// Inserts or updates [account]. [photoChange] works as in [saveEntry].
+  Future<void> saveAccount(
+    PayAccount account, {
+    PhotoChange photoChange = PhotoChange.keep,
+    String? newPhotoPath,
+  }) async {
+    PayAccount? previous;
+    for (final a in _accounts) {
+      if (a.id != null && a.id == account.id) previous = a;
+    }
+    String? photo = previous?.photo;
+    String? imported;
+    if (photoChange == PhotoChange.replace && newPhotoPath != null) {
+      imported = await _photos.importFile(newPhotoPath);
+      photo = imported;
+    } else if (photoChange == PhotoChange.remove) {
+      photo = null;
+    }
+    final toSave = account.copyWith(photo: photo, clearPhoto: photo == null);
+    try {
+      if (toSave.id == null) {
+        await _repo.insertAccount(toSave);
+      } else {
+        await _repo.updateAccount(toSave);
+      }
+    } catch (_) {
+      await _photos.delete(imported);
+      rethrow;
+    }
+    final oldPhoto = previous?.photo;
+    if (oldPhoto != null && oldPhoto != photo) {
+      await _photos.delete(oldPhoto);
+    }
+    _accounts = await _repo.accounts();
+    notifyListeners();
+  }
+
+  Future<void> deleteAccount(PayAccount account) async {
+    final id = account.id;
+    if (id == null) return;
+    await _repo.deleteAccount(id);
+    await _photos.delete(account.photo);
+    _accounts = await _repo.accounts();
+    notifyListeners();
+  }
+
+  File? accountPhotoFile(PayAccount account) {
+    final name = account.photo;
+    if (name == null || !isSafePhotoName(name)) return null;
+    return _photos.fileFor(name);
   }
 
   // Monthly income sources

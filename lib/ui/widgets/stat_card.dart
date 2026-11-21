@@ -14,6 +14,7 @@ class StatCard extends StatelessWidget {
     this.detail,
     this.valueColor,
     this.icon,
+    this.onTap,
   });
 
   final String label;
@@ -21,6 +22,9 @@ class StatCard extends StatelessWidget {
   final String? detail;
   final Color? valueColor;
   final IconData? icon;
+
+  /// Makes the whole card tappable.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +36,10 @@ class StatCard extends StatelessWidget {
     );
     final valueHeight = (valueStyle?.fontSize ?? 24) * 1.4;
     return Card(
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,6 +78,7 @@ class StatCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

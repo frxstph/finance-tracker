@@ -18,7 +18,8 @@ enum EntryFilter {
   income('Income'),
   spending('Spending'),
   oneTime('One-time'),
-  loans('Loan payments');
+  loans('Loan payments'),
+  adjustments('Adjustments');
 
   const EntryFilter(this.label);
 
@@ -29,7 +30,7 @@ enum EntryFilter {
       case EntryFilter.all:
         return true;
       case EntryFilter.income:
-        return t.isMoneyIn;
+        return t == EntryType.income || t == EntryType.loanReceived;
       case EntryFilter.spending:
         return t == EntryType.bill ||
             t == EntryType.oneTime ||
@@ -38,6 +39,8 @@ enum EntryFilter {
         return t == EntryType.oneTime;
       case EntryFilter.loans:
         return t == EntryType.loanPayment;
+      case EntryFilter.adjustments:
+        return t.isAdjustment;
     }
   }
 }
@@ -76,7 +79,7 @@ class _EntriesPageState extends State<EntriesPage> {
   String _totalLine(List<Entry> entries) {
     final n = entries.length;
     final count = '$n ${n == 1 ? 'entry' : 'entries'}';
-    if (_filter == EntryFilter.all) {
+    if (_filter == EntryFilter.all || _filter == EntryFilter.adjustments) {
       final net = entries.fold<int>(0, (sum, e) => sum + signedAmount(e));
       final sign = net > 0 ? '+' : '';
       return 'Net $sign${formatPeso(net)} · $count';
@@ -95,6 +98,7 @@ class _EntriesPageState extends State<EntriesPage> {
       case EntryFilter.loans:
         return debtColor(context);
       case EntryFilter.all:
+      case EntryFilter.adjustments:
         return null;
     }
   }

@@ -86,7 +86,14 @@ class MonthSummary {
   final Set<int> receivedIncomeIds;
 
   /// Money in minus money out during this month only.
-  int get monthChange => income + loanReceived - spent - loanPaid;
+  int get monthChange =>
+      income + loanReceived + adjustments - spent - loanPaid;
+
+  /// Adjustments this month: added to cash minus taken from cash. Neither
+  /// income nor spending.
+  int get adjustments =>
+      (breakdown[EntryType.adjustIn] ?? 0) -
+      (breakdown[EntryType.adjustOut] ?? 0);
 
   /// Cash on hand at the end of this month (or now, for the current month):
   /// what was carried in plus this month's change. May be negative.
@@ -294,6 +301,7 @@ class ForecastMonth {
     required this.billsToPay,
     required this.loanPayments,
     required this.owedAfter,
+    this.loanDues = const <int, int>{},
   });
 
   /// "yyyy-MM"
@@ -317,6 +325,10 @@ class ForecastMonth {
 
   /// Loans still owed after this month's planned payments.
   final int owedAfter;
+
+  /// Loan id -> payment the forecast expects this month (only loans with
+  /// something due).
+  final Map<int, int> loanDues;
 
   /// Projected cash at the end of the month.
   int get endCash =>
@@ -378,6 +390,7 @@ List<ForecastMonth> forecastMonths({
 
     var loanPayments = 0;
     var owedAfter = 0;
+    final loanDues = <int, int>{};
     for (final loan in loans) {
       final id = loan.id;
       if (id == null) continue;
@@ -397,6 +410,7 @@ List<ForecastMonth> forecastMonths({
       }
       planned[id] = extra + due;
       loanPayments += due;
+      if (due > 0) loanDues[id] = due;
       owedAfter += balance - due;
     }
 
@@ -408,6 +422,7 @@ List<ForecastMonth> forecastMonths({
       billsToPay: billsToPay,
       loanPayments: loanPayments,
       owedAfter: owedAfter,
+      loanDues: loanDues,
     );
     result.add(item);
     cash = item.endCash;

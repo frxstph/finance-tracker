@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-const int schemaVersion = 5;
+const int schemaVersion = 6;
 const String databaseFileName = 'finance.db';
 
 const List<String> _schemaV1 = <String>[
@@ -70,6 +70,18 @@ const List<String> _upgradeToV5 = <String>[
   'ALTER TABLE bills ADD COLUMN start_date TEXT',
 ];
 
+/// Version 6: payment accounts with QR codes, and a due day on loans.
+const List<String> _upgradeToV6 = <String>[
+  '''
+CREATE TABLE accounts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  details TEXT NOT NULL DEFAULT '',
+  photo TEXT
+)''',
+  'ALTER TABLE loans ADD COLUMN due_day INTEGER',
+];
+
 /// Opens (and creates on first run) the app database.
 Future<Database> openAppDatabase() async {
   final dir = await getDatabasesPath();
@@ -95,6 +107,9 @@ Future<Database> openAppDatabase() async {
       for (final sql in _upgradeToV5) {
         await db.execute(sql);
       }
+      for (final sql in _upgradeToV6) {
+        await db.execute(sql);
+      }
     },
     onUpgrade: (Database db, int oldVersion, int newVersion) async {
       if (oldVersion < 2) {
@@ -114,6 +129,11 @@ Future<Database> openAppDatabase() async {
       }
       if (oldVersion < 5) {
         for (final sql in _upgradeToV5) {
+          await db.execute(sql);
+        }
+      }
+      if (oldVersion < 6) {
+        for (final sql in _upgradeToV6) {
           await db.execute(sql);
         }
       }

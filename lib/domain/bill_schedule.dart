@@ -47,6 +47,38 @@ int billDueCount(Bill bill, String month) {
   }
 }
 
+/// The day of the month each payment of [bill] falls on in [month], one
+/// item per time it is due (so the length equals [billDueCount]). Null for a
+/// payment with no known day: an old monthly bill with no start date.
+List<int?> billDueDays(Bill bill, String month) {
+  final count = billDueCount(bill, month);
+  if (count == 0) return const <int?>[];
+  final rawStart = bill.startDate;
+  final start =
+      rawStart != null && isValidDateKey(rawStart) ? parseDateKey(rawStart) : null;
+  if (start == null) return List<int?>.filled(count, null);
+  final first = parseMonthKey(month);
+  switch (bill.frequency) {
+    case BillFrequency.monthly:
+      return <int?>[dayInMonth(first, start.day).day];
+    case BillFrequency.once:
+      return <int?>[start.day];
+    case BillFrequency.weekly:
+    case BillFrequency.daily:
+      final step = bill.frequency == BillFrequency.weekly ? 7 : 1;
+      final s = _dayNumber(start);
+      final a = _dayNumber(first);
+      final firstIndex = a <= s ? 0 : (a - s + step - 1) ~/ step;
+      final days = <int?>[];
+      for (var i = 0; i < count; i++) {
+        final d = DateTime(
+            start.year, start.month, start.day + (firstIndex + i) * step);
+        days.add(d.day);
+      }
+      return days;
+  }
+}
+
 /// Why a bill has nothing due in [month]: it starts later, or it is done.
 /// Null when something is due.
 String? billNotDueReason(Bill bill, String month) {

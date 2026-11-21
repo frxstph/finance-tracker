@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../domain/models.dart';
 import '../domain/money.dart';
+import '../domain/dates.dart';
 import '../domain/summary.dart';
+import '../domain/weeks.dart';
 import '../state/app_state.dart';
 import 'theme.dart';
 import 'widgets/month_switcher.dart';
+import 'widgets/count_cash_dialog.dart';
 import 'widgets/stat_card.dart';
 
 /// Home screen. "Now" shows the selected month as recorded; "If all paid"
@@ -71,6 +74,11 @@ class _DashboardPageState extends State<DashboardPage> {
             f: forecast,
             projectedStart: forecast.month != state.currentMonthKey,
           ),
+          const SizedBox(height: 8),
+          _WeekBlocksCard(
+            month: forecast.month,
+            blocks: state.weeksFor(forecast),
+          ),
         ] else
           const _NowCards(),
         const SizedBox(height: 8),
@@ -135,7 +143,8 @@ class _NowCards extends StatelessWidget {
         icon: Icons.account_balance_wallet_outlined,
         value: formatPeso(s.cash),
         valueColor: _signColor(context, s.cash),
-        detail: 'Running balance',
+        detail: 'Tap to count your cash',
+        onTap: () => showCountCashDialog(context),
       ),
       StatCard(
         label: 'Still owed',
@@ -261,6 +270,165 @@ class _ForecastSteps extends StatelessWidget {
   }
 }
 
+/// "If all paid", block by block: 1–7, 8–14, 15–21, 22–end. Warns about the
+/// first block that ends with cash below zero.
+class _WeekBlocksCard extends StatelessWidget {
+  const _WeekBlocksCard({required this.month, required this.blocks});
+
+  final String month;
+  final List<WeekBlock> blocks;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final monthShort = shortMonthLabel(month).split(' ').first;
+    final small = theme.textTheme.bodyMedium
+        ?.copyWith(fontFeatures: tabularFigures);
+
+    WeekBlock? short;
+    for (final b in blocks) {
+      if (!b.past && b.endCash < 0) {
+        short = b;
+        break;
+      }
+    }
+
+    Color itemColor(WeekItem i) {
+      switch (i.kind) {
+        case WeekItemKind.income:
+          return incomeColor(context);
+        case WeekItemKind.bill:
+          return billsColor(context);
+        case WeekItemKind.loan:
+          return debtColor(context);
+      }
+    }
+
+    String signed(int v) => '${v > 0 ? '+' : ''}${formatPeso(v)}';
+
+    final children = <Widget>[
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: Text('Week by week', style: theme.textTheme.titleSmall),
+      ),
+    ];
+
+    final s = short;
+    if (s != null) {
+      final red = debtColor(context);
+      children.add(Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: red.withAlpha(30),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.warning_amber_rounded, color: red, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Short by ${formatPeso(-s.endCash)} on days '
+                '${s.firstDay}–${s.lastDay}. Move a payment later or keep '
+                'cash aside.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: red),
+              ),
+            ),
+          ],
+        ),
+      ));
+    }
+
+    for (var i = 0; i < blocks.length; i++) {
+      final b = blocks[i];
+      if (i > 0) {
+        children.add(const Divider(indent: 16, endIndent: 16, height: 16));
+      }
+      final headerStyle = theme.textTheme.titleSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: b.past ? muted : null,
+      );
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                '${b.firstDay}–${b.lastDay} $monthShort${b.past ? ' · done' : ''}',
+                style: headerStyle,
+              ),
+            ),
+            Text(
+              formatPeso(b.endCash),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFeatures: tabularFigures,
+                color: _signColor(context, b.endCash),
+              ),
+            ),
+          ],
+        ),
+      ));
+      final rows = <Widget>[
+        if (b.recorded != 0)
+          _weekRow(context, 'Already recorded', signed(b.recorded), small,
+              null),
+        for (final item in b.items)
+          _weekRow(
+            context,
+            item.dayKnown
+                ? '${ordinalDay(item.day)} · ${item.label}'
+                : '${item.label} · no due day',
+            signed(item.amount),
+            small,
+            itemColor(item),
+          ),
+      ];
+      if (rows.isEmpty) {
+        rows.add(Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
+          child: Text('Nothing due', style: small?.copyWith(color: muted)),
+        ));
+      }
+      children.addAll(rows);
+    }
+    children.add(const SizedBox(height: 8));
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _weekRow(BuildContext context, String label, String amount,
+      TextStyle? style, Color? color) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 1, 16, 1),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              label,
+              style: style?.copyWith(color: muted),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(amount, style: style?.copyWith(color: color)),
+        ],
+      ),
+    );
+  }
+}
+
 class _BreakdownCard extends StatelessWidget {
   const _BreakdownCard();
 
@@ -287,6 +455,9 @@ class _BreakdownCard extends StatelessWidget {
         return 'Loan payments';
       case EntryType.loanReceived:
         return 'Loans received';
+      case EntryType.adjustIn:
+      case EntryType.adjustOut:
+        return 'Adjustments';
     }
   }
 
@@ -314,6 +485,16 @@ class _BreakdownCard extends StatelessWidget {
                 title: Text(_label(t)),
                 trailing: Text(
                   formatPeso(s.breakdown[t] ?? 0),
+                  style: amountStyle,
+                ),
+              ),
+            if (s.adjustments != 0)
+              ListTile(
+                dense: true,
+                leading: Icon(iconForType(EntryType.adjustIn)),
+                title: Text(_label(EntryType.adjustIn)),
+                trailing: Text(
+                  '${s.adjustments > 0 ? '+' : ''}${formatPeso(s.adjustments)}',
                   style: amountStyle,
                 ),
               ),

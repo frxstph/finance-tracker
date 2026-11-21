@@ -383,3 +383,33 @@ the balance as one large number (dark text, green when paid off) with "left of
 under it; then a colored status pill (orange "Due this month · ₱x", grey
 "Starts …", green "Nothing due this month" / "Paid off") beside the date
 range. Same information as before, grouped.
+
+## 20. v1.9 changes (adjustments, sums, accounts, week blocks)
+
+**Adjustments.** Entry types `adjust_in` / `adjust_out` (one "Adjustment"
+chip with "Add to cash" / "Take from cash"). They move cash and carry over
+but are neither income nor spending; the breakdown shows their net.
+**Count my cash** (tap the Cash on hand card): enter the real amount; the
+difference from `cashNow` (all entries dated up to today) is saved as an
+adjustment dated today, note "Cash count".
+
+**Sums in amount boxes.** `parseCentavos` also evaluates `a op b op c…`
+with + − × ÷ (also * /), × and ÷ first; numbers after × or ÷ are plain
+factors; results round to the centavo; negative, unfinished, ÷0 or too
+large → null. Amount fields show + − × ÷ buttons while focused, "= ₱605"
+under a sum, and replace the sum with its total when focus leaves.
+
+**My accounts** (QR icon on the Dashboard). Schema v6 table
+`accounts(id, name, details, photo)`. Each card shows the QR image (tap for
+full screen on white), the details with a copy button, and share (image +
+text). Photos live in the receipts folder and go into backups. Backup
+version 5 (1–4 still restore).
+
+**Week blocks in "If all paid".** Schema v6 adds `loans.due_day` (optional
+1–31). `weekBlocks` splits a forecast month into 1–7, 8–14, 15–21, 22–end:
+recorded entries on their day; monthly income not yet received on its day;
+each bill payment still due on its due day (`billDueDays`); each loan
+payment the forecast expects on the loan's due day. Overdue items or items
+without a due day count on today (current month) or the 1st (later
+months). Block end cash chains; the last equals the forecast's end cash.
+The card warns about the first upcoming block that ends below ₱0.

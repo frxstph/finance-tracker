@@ -35,6 +35,25 @@ class Repository {
     return rows.isNotEmpty;
   }
 
+  // Payment accounts (QR codes)
+
+  Future<List<PayAccount>> accounts() async {
+    final rows = await _db.query('accounts', orderBy: 'name COLLATE NOCASE');
+    return rows.map(PayAccount.fromMap).toList();
+  }
+
+  Future<int> insertAccount(PayAccount account) =>
+      _db.insert('accounts', account.toMap());
+
+  Future<void> updateAccount(PayAccount account) async {
+    await _db.update('accounts', account.toMap(),
+        where: 'id = ?', whereArgs: <Object?>[account.id]);
+  }
+
+  Future<void> deleteAccount(int id) async {
+    await _db.delete('accounts', where: 'id = ?', whereArgs: <Object?>[id]);
+  }
+
   // Monthly income sources
 
   /// Ordered by the day they arrive.
@@ -139,6 +158,7 @@ class Repository {
     required List<Bill> bills,
     required List<Loan> loans,
     required List<IncomeSource> incomes,
+    required List<PayAccount> accounts,
     required List<Entry> entries,
   }) async {
     await _db.transaction((Transaction txn) async {
@@ -146,6 +166,10 @@ class Repository {
       await txn.delete('bills');
       await txn.delete('loans');
       await txn.delete('incomes');
+      await txn.delete('accounts');
+      for (final a in accounts) {
+        await txn.insert('accounts', a.toMap());
+      }
       for (final b in bills) {
         await txn.insert('bills', b.toMap());
       }

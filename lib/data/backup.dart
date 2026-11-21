@@ -12,12 +12,13 @@ import '../domain/models.dart';
 import 'photos.dart';
 import 'repository.dart';
 
-const int backupVersion = 4;
+const int backupVersion = 5;
 
 /// Backup versions this app can restore. Version 1 has no loan plans; its
 /// loans read as "pay in full". Versions 1 and 2 have no monthly incomes.
 /// Versions 1 to 3 have no bill schedules: their bills read as monthly.
-const Set<int> _readableVersions = <int>{1, 2, 3, 4};
+/// Versions 1 to 4 have no payment accounts or loan due days.
+const Set<int> _readableVersions = <int>{1, 2, 3, 4, 5};
 const String _dataFileName = 'data.json';
 const String _receiptsPrefix = 'receipts/';
 
@@ -28,6 +29,7 @@ class BackupContents {
     required this.bills,
     required this.loans,
     required this.incomes,
+    required this.accounts,
     required this.entries,
     required this.receipts,
   });
@@ -35,6 +37,7 @@ class BackupContents {
   final List<Bill> bills;
   final List<Loan> loans;
   final List<IncomeSource> incomes;
+  final List<PayAccount> accounts;
   final List<Entry> entries;
 
   /// Receipt file name -> bytes.
@@ -63,6 +66,7 @@ class BackupService {
     final bills = await _repo.bills();
     final loans = await _repo.loans();
     final incomes = await _repo.incomes();
+    final accounts = await _repo.accounts();
     final entries = await _repo.entries();
 
     final data = <String, Object?>{
@@ -70,6 +74,7 @@ class BackupService {
       'bills': bills.map((b) => b.toMap()).toList(),
       'loans': loans.map((l) => l.toMap()).toList(),
       'incomes': incomes.map((i) => i.toMap()).toList(),
+      'accounts': accounts.map((a) => a.toMap()).toList(),
       'entries': entries.map((e) => e.toMap()).toList(),
     };
 
@@ -217,21 +222,26 @@ class BackupService {
     final incomes = data.containsKey('incomes')
         ? _parseRows<IncomeSource>(data, 'incomes', IncomeSource.fromMap)
         : <IncomeSource>[];
+    final accounts = data.containsKey('accounts')
+        ? _parseRows<PayAccount>(data, 'accounts', PayAccount.fromMap)
+        : <PayAccount>[];
     final entries = _parseRows<Entry>(data, 'entries', Entry.fromMap);
 
-    _validate(bills, loans, incomes, entries);
+    _validate(bills, loans, incomes, entries, accounts);
 
     return BackupContents(
       bills: bills,
       loans: loans,
       incomes: incomes,
+      accounts: accounts,
       entries: entries,
       receipts: receipts,
     );
   }
 
   void _validate(List<Bill> bills, List<Loan> loans,
-      List<IncomeSource> incomes, List<Entry> entries) {
+      List<IncomeSource> incomes, List<Entry> entries,
+      List<PayAccount> accounts) {
     Set<int> uniqueIds(Iterable<int?> ids, String what) {
       final seen = <int>{};
       for (final id in ids) {
@@ -245,6 +255,13 @@ class BackupService {
     final billIds = uniqueIds(bills.map((b) => b.id), 'bill');
     final loanIds = uniqueIds(loans.map((l) => l.id), 'loan');
     final incomeIds = uniqueIds(incomes.map((i) => i.id), 'income');
+    uniqueIds(accounts.map((a) => a.id), 'account');
+    for (final a in accounts) {
+      final photo = a.photo;
+      if (photo != null && !isSafePhotoName(photo)) {
+        throw const FormatException('An account has a bad photo name.');
+      }
+    }
     uniqueIds(entries.map((e) => e.id), 'entry');
 
     for (final i in incomes) {
@@ -268,7 +285,8 @@ class BackupService {
           !isValidDateKey(l.created) ||
           l.months < 1 ||
           !isValidMonthKey(l.startMonth) ||
-          (l.photo != null && !isSafePhotoName(l.photo!))) {
+          (l.photo != null && !isSafePhotoName(l.photo!)) ||
+          (l.dueDay != null && (l.dueDay! < 1 || l.dueDay! > 31))) {
         throw const FormatException('A loan has bad data.');
       }
     }
@@ -327,6 +345,7 @@ class BackupService {
         bills: contents.bills,
         loans: contents.loans,
         incomes: contents.incomes,
+        accounts: contents.accounts,
         entries: contents.entries,
       );
     } catch (_) {

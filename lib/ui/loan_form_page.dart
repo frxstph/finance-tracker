@@ -47,6 +47,8 @@ class _LoanFormPageState extends State<LoanFormPage> {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _amount = TextEditingController();
   final TextEditingController _months = TextEditingController();
+  final TextEditingController _dueDay = TextEditingController();
+  String? _dueDayError;
   LoanPlan _plan = LoanPlan.monthly;
   String _startMonth = monthKey(addMonths(DateTime.now(), 1));
   bool _addToCash = true;
@@ -69,6 +71,7 @@ class _LoanFormPageState extends State<LoanFormPage> {
       _plan = l.plan;
       _months.text = l.plan == LoanPlan.monthly ? '${l.months}' : '';
       _startMonth = l.startMonth;
+      _dueDay.text = l.dueDay == null ? '' : '${l.dueDay}';
       _addToCash = false;
     }
   }
@@ -78,6 +81,7 @@ class _LoanFormPageState extends State<LoanFormPage> {
     _name.dispose();
     _amount.dispose();
     _months.dispose();
+    _dueDay.dispose();
     super.dispose();
   }
 
@@ -122,13 +126,22 @@ class _LoanFormPageState extends State<LoanFormPage> {
     final name = _name.text.trim();
     final amount = parseCentavos(_amount.text);
     final months = _plan == LoanPlan.full ? 1 : _parsedMonths;
+    final dueText = _dueDay.text.trim();
+    final dueDay = dueText.isEmpty ? null : int.tryParse(dueText);
+    final dueOk =
+        dueText.isEmpty || (dueDay != null && dueDay >= 1 && dueDay <= 31);
     setState(() {
+      _dueDayError = dueOk ? null : 'Enter a day from 1 to 31, or leave empty';
       _nameError = name.isEmpty ? 'Enter a name' : null;
       _amountError =
           amount == null || amount <= 0 ? 'Enter an amount above ₱0' : null;
       _monthsError = months == null ? 'Enter how many months' : null;
     });
-    if (name.isEmpty || amount == null || amount <= 0 || months == null) {
+    if (name.isEmpty ||
+        amount == null ||
+        amount <= 0 ||
+        months == null ||
+        !dueOk) {
       return;
     }
 
@@ -142,8 +155,11 @@ class _LoanFormPageState extends State<LoanFormPage> {
             plan: _plan,
             months: months,
             startMonth: _startMonth,
+            dueDay: dueDay,
           )
         : existing.copyWith(
+            dueDay: dueDay,
+            clearDueDay: dueDay == null,
             name: name,
             principal: amount,
             plan: _plan,
@@ -278,6 +294,22 @@ class _LoanFormPageState extends State<LoanFormPage> {
             month: _startMonth,
             onPrevious: () => _shiftMonth(-1),
             onNext: () => _shiftMonth(1),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _dueDay,
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(2),
+            ],
+            decoration: InputDecoration(
+              labelText: 'Due day of the month (optional)',
+              hintText: '5',
+              helperText: 'Used to place payments in the right week',
+              errorText: _dueDayError,
+              border: const OutlineInputBorder(),
+            ),
           ),
           if (preview != null) ...<Widget>[
             const SizedBox(height: 8),

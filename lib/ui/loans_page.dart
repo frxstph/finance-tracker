@@ -113,14 +113,16 @@ class _LoanCard extends StatelessWidget {
     return '${paymentsCovered(loan, paid)} of ${loan.paymentCount} paid';
   }
 
-  /// "Nov 2026 – Apr 2027", or "by Nov 2026" for pay in full.
+  /// "Nov 2026 – Apr 2027 · 5th", or "by Nov 2026" for pay in full.
   String _spanText() {
+    final day = loan.dueDay;
+    final due = day == null ? '' : ' · ${ordinalDay(day)}';
     if (loan.plan == LoanPlan.full) {
-      return 'by ${shortMonthLabel(loan.startMonth)}';
+      return 'by ${shortMonthLabel(loan.startMonth)}$due';
     }
     final last = monthKey(
         addMonths(parseMonthKey(loan.startMonth), loan.paymentCount - 1));
-    return '${shortMonthLabel(loan.startMonth)} – ${shortMonthLabel(last)}';
+    return '${shortMonthLabel(loan.startMonth)} – ${shortMonthLabel(last)}$due';
   }
 
   @override

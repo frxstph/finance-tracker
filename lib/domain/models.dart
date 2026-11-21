@@ -10,7 +10,15 @@ enum EntryType {
 
   /// Money received from a new loan. Raises cash but is not income.
   /// Created when a loan is added; never picked by hand.
-  loanReceived('loan_received', 'Loan received');
+  loanReceived('loan_received', 'Loan received'),
+
+  /// A correction that adds to cash (a starting balance, found money, a
+  /// cash count that came out higher). Not income.
+  adjustIn('adjust_in', 'Adjustment'),
+
+  /// A correction that takes from cash (a cash count that came out lower).
+  /// Not spending.
+  adjustOut('adjust_out', 'Adjustment');
 
   const EntryType(this.dbValue, this.label);
 
@@ -28,13 +36,17 @@ enum EntryType {
   }
 
   /// Money coming in (shown green with a plus sign).
-  bool get isMoneyIn => this == income || this == loanReceived;
+  bool get isMoneyIn =>
+      this == income || this == loanReceived || this == adjustIn;
+
+  bool get isAdjustment => this == adjustIn || this == adjustOut;
 
   /// Linked to a loan through `loan_id`.
   bool get needsLoan => this == loanPayment || this == loanReceived;
 
   /// Offered in the quick add type chips.
-  bool get userSelectable => this != loanReceived;
+  /// "Adjustment" shows as one chip (adjustIn) with an add/take toggle.
+  bool get userSelectable => this != loanReceived && this != adjustOut;
 }
 
 /// How a loan is paid back.
@@ -187,6 +199,7 @@ class Loan {
     this.months = 1,
     required this.startMonth,
     this.photo,
+    this.dueDay,
   });
 
   final int? id;
@@ -213,6 +226,10 @@ class Loan {
 
   bool get hasPhoto => photo != null && photo!.isNotEmpty;
 
+  /// Day of the month payments are due (1–31; 29–31 fall on the last day of
+  /// shorter months), or null for "any day".
+  final int? dueDay;
+
   /// Number of payments the plan has.
   int get paymentCount => plan == LoanPlan.full || months < 1 ? 1 : months;
 
@@ -233,6 +250,8 @@ class Loan {
     String? startMonth,
     String? photo,
     bool clearPhoto = false,
+    int? dueDay,
+    bool clearDueDay = false,
   }) {
     return Loan(
       id: id ?? this.id,
@@ -243,6 +262,7 @@ class Loan {
       months: months ?? this.months,
       startMonth: startMonth ?? this.startMonth,
       photo: clearPhoto ? null : (photo ?? this.photo),
+      dueDay: clearDueDay ? null : (dueDay ?? this.dueDay),
     );
   }
 
@@ -256,6 +276,7 @@ class Loan {
       'months': paymentCount,
       'start_month': startMonth,
       'photo': photo,
+      'due_day': dueDay,
     };
   }
 
@@ -279,6 +300,7 @@ class Loan {
           ? (created.length >= 7 ? created.substring(0, 7) : created)
           : _str(rawStart, 'start_month'),
       photo: rawPhoto == null ? null : _str(rawPhoto, 'photo'),
+      dueDay: _intOrNull(map['due_day'], 'due_day'),
     );
   }
 }
@@ -341,6 +363,62 @@ class IncomeSource {
       amount: _int(map['amount'], 'amount'),
       day: _int(map['day'], 'day'),
       active: _int(map['active'], 'active') != 0,
+    );
+  }
+}
+
+/// A place people send you money: a bank or e-wallet account with its QR
+/// code (a screenshot or photo kept in the receipts folder).
+class PayAccount {
+  const PayAccount({
+    this.id,
+    required this.name,
+    this.details = '',
+    this.photo,
+  });
+
+  final int? id;
+
+  /// "GCash", "BPI savings".
+  final String name;
+
+  /// Free text: account name, number, notes.
+  final String details;
+
+  /// File name of the QR image, or null.
+  final String? photo;
+
+  PayAccount copyWith({
+    int? id,
+    String? name,
+    String? details,
+    String? photo,
+    bool clearPhoto = false,
+  }) {
+    return PayAccount(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      details: details ?? this.details,
+      photo: clearPhoto ? null : (photo ?? this.photo),
+    );
+  }
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      if (id != null) 'id': id,
+      'name': name,
+      'details': details,
+      'photo': photo,
+    };
+  }
+
+  factory PayAccount.fromMap(Map<String, Object?> map) {
+    final rawPhoto = map['photo'];
+    return PayAccount(
+      id: _intOrNull(map['id'], 'id'),
+      name: _str(map['name'], 'name'),
+      details: map['details'] == null ? '' : _str(map['details'], 'details'),
+      photo: rawPhoto == null ? null : _str(rawPhoto, 'photo'),
     );
   }
 }
