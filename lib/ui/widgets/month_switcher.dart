@@ -13,7 +13,7 @@ class MonthSwitcher extends StatelessWidget {
     final isThisMonth =
         monthKey(state.month) == monthKey(DateTime.now());
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: <Widget>[
           IconButton(

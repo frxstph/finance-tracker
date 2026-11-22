@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../state/app_state.dart';
 import '../due_days_page.dart';
 import '../theme.dart';
+import 'info_card.dart';
 
-/// "3 bills and 1 loan have no due day…" with a button to set them. Shows
-/// nothing when everything has a due day.
+/// "4 loans need a due day" with Set due days / Later. Same layout as the
+/// Safe to spend card. Shows nothing when everything has a due day or the
+/// person tapped Later.
 class DueDayNudge extends StatelessWidget {
   const DueDayNudge({super.key, this.margin});
 
@@ -14,40 +16,29 @@ class DueDayNudge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    if (!state.showDueDayNudge) return const SizedBox.shrink();
     final bills = state.billsWithoutDueDay.length;
     final loans = state.loansWithoutDueDay.length;
-    if (bills + loans == 0) return const SizedBox.shrink();
     final parts = <String>[
       if (bills > 0) '$bills ${bills == 1 ? 'bill' : 'bills'}',
       if (loans > 0) '$loans ${loans == 1 ? 'loan' : 'loans'}',
     ];
-    final what = parts.join(' and ');
-    final theme = Theme.of(context);
+    final one = bills + loans == 1;
     final orange = billsColor(context);
-    return Container(
-      margin: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: orange.withAlpha(30),
-        borderRadius: BorderRadius.circular(12),
+    return InfoCard(
+      margin: margin,
+      icon: Icons.event_busy_outlined,
+      iconColor: orange,
+      color: Color.alphaBlend(
+        orange.withAlpha(28),
+        Theme.of(context).colorScheme.surface,
       ),
-      child: Row(
-        children: <Widget>[
-          Icon(Icons.event_busy_outlined, color: orange),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '$what ${bills + loans == 1 ? 'has' : 'have'} no due day, so '
-              'plans may look short. Set them for accurate results.',
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
-          TextButton(
-            onPressed: () => showDueDaysPage(context),
-            child: const Text('Set'),
-          ),
-        ],
-      ),
+      title: '${parts.join(' and ')} ${one ? 'needs' : 'need'} a due day',
+      body: 'Plans may look short until you set ${one ? 'it' : 'them'}.',
+      actions: <InfoCardAction>[
+        InfoCardAction('Set due days', () => showDueDaysPage(context)),
+        InfoCardAction('Later', state.hideDueDayNudge, muted: true),
+      ],
     );
   }
 }

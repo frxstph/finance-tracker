@@ -62,12 +62,19 @@ void main() {
     test('keeps two decimals otherwise', () {
       expect(formatPeso(125050), '₱1,250.50');
       expect(formatPeso(5), '₱0.05');
-      expect(formatPeso(123456789), '₱1,234,567.89');
+      expect(formatPeso(99999999), '₱999,999.99');
+    });
+
+    test('a million or more drops the centavos', () {
+      expect(formatPeso(123456789), '₱1,234,568');
+      expect(formatPeso(123456749), '₱1,234,567');
+      expect(formatPeso(100000000), '₱1,000,000');
+      expect(formatPeso(-131825750), '−₱1,318,258');
     });
 
     test('negative amounts', () {
-      expect(formatPeso(-125050), '-₱1,250.50');
-      expect(formatPeso(-300), '-₱3');
+      expect(formatPeso(-125050), '−₱1,250.50');
+      expect(formatPeso(-300), '−₱3');
     });
   });
 

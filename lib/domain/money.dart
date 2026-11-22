@@ -101,15 +101,21 @@ int? _parsePlain(String s) {
 
 final NumberFormat _groupedWhole = NumberFormat('#,##0', 'en_US');
 
+/// Amounts from this many centavos up (₱1,000,000) are shown without
+/// centavos, so big numbers still fit on one line.
+const int wholePesosFrom = 100000000;
+
 /// Formats centavos as "₱1,250.50", dropping ".00" for whole amounts
-/// ("₱1,250"). Negative amounts become "-₱1,250".
+/// ("₱1,250"). Negative amounts use a true minus sign: "−₱1,250". From
+/// ₱1,000,000 up the centavos are rounded off: "₱1,145,578".
 String formatPeso(int centavos) {
   final negative = centavos < 0;
-  final abs = centavos.abs();
+  var abs = centavos.abs();
+  if (abs >= wholePesosFrom) abs = (abs + 50) ~/ 100 * 100;
   final pesos = abs ~/ 100;
   final cents = abs % 100;
   final buffer = StringBuffer();
-  if (negative) buffer.write('-');
+  if (negative) buffer.write('−');
   buffer.write('₱');
   buffer.write(_groupedWhole.format(pesos));
   if (cents != 0) {

@@ -488,3 +488,30 @@ scans up to 62 days ahead and offers the earliest safe day.
   "Can I buy it?" opens **Set due days**: one list, a day box each. A bill's
   start date becomes that day in the month of its first payment (or this
   month), so months it was already due stay due (`startDateForDueDay`).
+
+## 25. v1.11.1 Dashboard polish and the Scan button
+
+Design: the "Dashboard polish v1.11.1" and "Scan button concept" canvases.
+
+- **One card format.** `widgets/info_card.dart` (`InfoCard`) is shared by
+  Safe to spend and the due-day banner: icon + title on one row, an optional
+  big headline, body text, then actions at the bottom left. Body and actions
+  start at the same left edge, so the two cards line up.
+- **Due-day banner** is shorter ("4 loans need a due day" / "Plans may look
+  short until you set them.") with **Set due days** and **Later**. Later
+  hides it until the set of items without a due day changes or the app
+  restarts (`AppState.showDueDayNudge`, `hideDueDayNudge`; in memory only).
+- **Safe to spend** shows whole pesos a day (rounded down), a shorter
+  sentence, and a **"Payday in N days"** pill on the title row (tomorrow /
+  today wording; hidden when there is no monthly income).
+- **Today's date** ("22" over "Sun") sits at the right end of the Today /
+  Plan ahead row. It is always today's date.
+- **Amounts stay on one line.** `formatPeso` uses a true minus sign
+  ("−₱1,250") and from ₱1,000,000 up rounds off the centavos
+  ("₱1,145,578"). Stat card values already shrink to fit (`FittedBox`).
+- **Scan button.** The tab bar is Dashboard, Entries, a raised Scan circle,
+  Monthly, Loans. Scan opens "Add a spend": Scan a receipt and Choose a photo
+  say "Coming soon" (receipt OCR is the next update); Add without a photo
+  opens the normal add screen. The + button is gone from Dashboard and
+  Entries; Monthly and Loans keep their own Add.
+- Smaller fixes: "Tap to count" caption, tighter month row.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../domain/models.dart';
 import '../domain/money.dart';
@@ -11,6 +12,7 @@ import 'theme.dart';
 import 'widgets/month_switcher.dart';
 import 'widgets/count_cash_dialog.dart';
 import 'widgets/due_day_nudge.dart';
+import 'widgets/info_card.dart';
 import 'widgets/stat_card.dart';
 
 /// Home screen. "Today" shows the selected month as recorded; "Plan ahead"
@@ -42,20 +44,29 @@ class _DashboardPageState extends State<DashboardPage> {
         const MonthSwitcher(),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Wrap(
-            spacing: 8,
+          child: Row(
             children: <Widget>[
-              ChoiceChip(
-                label: const Text('Today'),
-                selected: !_forecast,
-                onSelected: (_) => setState(() => _forecast = false),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    ChoiceChip(
+                      label: const Text('Today'),
+                      selected: !_forecast,
+                      onSelected: (_) => setState(() => _forecast = false),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.auto_graph, size: 18),
+                      label: const Text('Plan ahead'),
+                      selected: _forecast,
+                      onSelected: (_) => setState(() => _forecast = true),
+                    ),
+                  ],
+                ),
               ),
-              ChoiceChip(
-                avatar: const Icon(Icons.auto_graph, size: 18),
-                label: const Text('Plan ahead'),
-                selected: _forecast,
-                onSelected: (_) => setState(() => _forecast = true),
-              ),
+              const SizedBox(width: 8),
+              const _TodayDate(),
             ],
           ),
         ),
@@ -102,6 +113,43 @@ class _DashboardPageState extends State<DashboardPage> {
         const SizedBox(height: 8),
         const _BreakdownCard(),
       ],
+    );
+  }
+}
+
+/// Today's date, "22" over "Sun", at the end of the Today / Plan ahead row.
+/// Always today, whichever month is being looked at.
+class _TodayDate extends StatelessWidget {
+  const _TodayDate();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final day = DateFormat('EEE').format(now);
+    return Semantics(
+      label: 'Today is ${DateFormat('EEEE d MMMM').format(now)}',
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            '${now.day}',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            day,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -228,17 +276,27 @@ class _SafeToSpendCard extends StatelessWidget {
     );
   }
 
+  /// "Payday in 8 days", "Payday tomorrow", "Payday today"; null when
+  /// there is no monthly income to count down to.
+  String? get _countdown {
+    if (s.paydayName == null) return null;
+    if (s.days <= 0) return 'Payday today';
+    if (s.days == 1) return 'Payday tomorrow';
+    return 'Payday in ${s.days} days';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final short = s.short;
-    final nothing = !short && s.perDay == 0;
+    // A daily budget reads better in whole pesos; round down to stay safe.
+    final perDay = s.perDay ~/ 100 * 100;
+    final nothing = !short && perDay == 0;
     final color = short
         ? debtColor(context)
         : nothing
             ? billsColor(context)
             : incomeColor(context);
-    final days = '${s.days} ${s.days == 1 ? 'day' : 'days'}';
     final String headline;
     final String sentence;
     if (short) {
@@ -249,56 +307,47 @@ class _SafeToSpendCard extends StatelessWidget {
       headline = 'Nothing spare';
       sentence = 'Everything you have is needed until $_payday.';
     } else {
-      headline = '${formatPeso(s.perDay)} a day';
+      headline = '${formatPeso(perDay)} a day';
       sentence = s.keptForLater > 0
-          ? 'Until $_payday ($days). Some cash is kept for bills after '
-              'payday.'
-          : 'Until $_payday ($days), with all bills covered.';
+          ? 'Until $_payday. Bills after payday are already covered.'
+          : 'Until $_payday, with all bills covered.';
     }
-    return Card(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _explain(context),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-          child: Row(
-            children: <Widget>[
-              Icon(short ? Icons.front_hand_outlined : Icons.savings_outlined,
-                  color: color),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('Safe to spend', style: theme.textTheme.labelLarge),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        headline,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: tabularFigures,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(sentence, style: theme.textTheme.bodyMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      'See how',
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(color: theme.colorScheme.primary),
-                    ),
-                  ],
-                ),
+    final countdown = _countdown;
+    return InfoCard(
+      icon: short ? Icons.front_hand_outlined : Icons.savings_outlined,
+      iconColor: color,
+      title: 'Safe to spend',
+      trailing: countdown == null
+          ? null
+          : Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(999),
               ),
-            ],
-          ),
-        ),
-      ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(Icons.event_outlined,
+                      size: 14, color: theme.colorScheme.onPrimaryContainer),
+                  const SizedBox(width: 4),
+                  Text(
+                    countdown,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      headline: headline,
+      headlineColor: color,
+      body: sentence,
+      onTap: () => _explain(context),
+      actions: <InfoCardAction>[
+        InfoCardAction('See how', () => _explain(context)),
+      ],
     );
   }
 }
@@ -358,7 +407,7 @@ class _NowCards extends StatelessWidget {
         icon: Icons.account_balance_wallet_outlined,
         value: formatPeso(s.cash),
         valueColor: _signColor(context, s.cash),
-        detail: 'Tap to count your cash',
+        detail: 'Tap to count',
         onTap: () => showCountCashDialog(context),
       ),
       StatCard(

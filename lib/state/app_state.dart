@@ -91,6 +91,25 @@ class AppState extends ChangeNotifier {
   int get missingDueDays =>
       billsWithoutDueDay.length + loansWithoutDueDay.length;
 
+  /// Which items were missing a due day when "Later" was tapped. The banner
+  /// stays hidden until that list changes or the app restarts.
+  String? _dueDayNudgeHiddenFor;
+
+  String get _dueDayNudgeKey => <String>[
+        for (final b in billsWithoutDueDay) 'b${b.id}',
+        for (final l in loansWithoutDueDay) 'l${l.id}',
+      ].join(',');
+
+  /// True when the "needs a due day" banner should show.
+  bool get showDueDayNudge =>
+      missingDueDays > 0 && _dueDayNudgeHiddenFor != _dueDayNudgeKey;
+
+  /// "Later" on the due-day banner.
+  void hideDueDayNudge() {
+    _dueDayNudgeHiddenFor = _dueDayNudgeKey;
+    notifyListeners();
+  }
+
   /// Gives bills and loans their due day of the month (id -> 1–31).
   Future<void> setDueDays({
     Map<int, int> bills = const <int, int>{},
