@@ -505,7 +505,8 @@ Design: the "Dashboard polish v1.11.1" and "Scan button concept" canvases.
   sentence, and a **"Payday in N days"** pill on the title row (tomorrow /
   today wording; hidden when there is no monthly income).
 - **Today's date** ("22" over "Sun") sits at the right end of the Today /
-  Plan ahead row. It is always today's date.
+  Plan ahead row, shown only on the current month (v1.14.2: beside another
+  month it read like a date in that month).
 - **Amounts stay on one line.** `formatPeso` uses a true minus sign
   ("−₱1,250") and from ₱1,000,000 up rounds off the centavos
   ("₱1,145,578"). Stat card values already shrink to fit (`FittedBox`).

@@ -65,8 +65,13 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const _TodayDate(),
+              // Today's date only on the current month: beside another
+              // month it reads like a date in that month.
+              if (AppScope.of(context).monthKeyValue ==
+                  AppScope.of(context).currentMonthKey) ...<Widget>[
+                const SizedBox(width: 8),
+                const _TodayDate(),
+              ],
             ],
           ),
         ),
@@ -118,7 +123,7 @@ class _DashboardPageState extends State<DashboardPage> {
 }
 
 /// Today's date, "22" over "Sun", at the end of the Today / Plan ahead row.
-/// Always today, whichever month is being looked at.
+/// Shown only while the current month is on screen.
 class _TodayDate extends StatelessWidget {
   const _TodayDate();
 
