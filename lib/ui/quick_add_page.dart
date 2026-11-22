@@ -481,11 +481,33 @@ class ScannedReceipt {
   final ReceiptGuess guess;
 }
 
-/// Top of "Check and save": says what was filled in from the receipt.
+/// Top of "Check and save": says what was filled in from the receipt, why
+/// nothing was, and lets you see the text the phone read.
 class _ScanNote extends StatelessWidget {
   const _ScanNote({required this.guess});
 
   final ReceiptGuess guess;
+
+  void _showText(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Text it read'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(guess.lines.join('\n')),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -496,10 +518,21 @@ class _ScanNote extends StatelessWidget {
       if (guess.store != null) 'the store',
     ];
     final String message;
-    if (read.isEmpty) {
-      message = 'Couldn’t read this receipt. Type the amount; the photo '
-          'is attached.';
+    final bool problem;
+    if (guess.error != null) {
+      problem = true;
+      message = 'The phone couldn’t read this photo, so type the amount. '
+          'The photo is still attached.\n\nWhat went wrong: ${guess.error}';
+    } else if (guess.noText) {
+      problem = true;
+      message = 'No text was found in this photo. Type the amount; the '
+          'photo is attached.';
+    } else if (read.isEmpty) {
+      problem = true;
+      message = 'Read the text but couldn’t find a total, date or store. '
+          'Type the amount; the photo is attached.';
     } else {
+      problem = false;
       final what = read.length == 1
           ? read.single
           : '${read.sublist(0, read.length - 1).join(', ')} and ${read.last}';
@@ -507,25 +540,50 @@ class _ScanNote extends StatelessWidget {
           'save.${guess.amount == null ? ' Couldn’t find the total, so '
               'type it in.' : ''}';
     }
+    final bg = problem
+        ? theme.colorScheme.errorContainer
+        : theme.colorScheme.primaryContainer;
+    final fg = problem
+        ? theme.colorScheme.onErrorContainer
+        : theme.colorScheme.onPrimaryContainer;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
+        color: bg,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(Icons.document_scanner_outlined,
-              color: theme.colorScheme.onPrimaryContainer),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onPrimaryContainer),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(
+                problem
+                    ? Icons.error_outline
+                    : Icons.document_scanner_outlined,
+                color: fg,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: fg),
+                ),
+              ),
+            ],
           ),
+          if (guess.lines.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: TextButton(
+                style: TextButton.styleFrom(foregroundColor: fg),
+                onPressed: () => _showText(context),
+                child: const Text('See the text it read'),
+              ),
+            )
+          else
+            const SizedBox(height: 8),
         ],
       ),
     );

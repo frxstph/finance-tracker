@@ -5,8 +5,9 @@ import '../domain/receipt_parser.dart';
 /// Reads a receipt photo on the phone (no internet) with ML Kit text
 /// recognition, then guesses the total, date and store.
 class ReceiptReader {
-  /// The photo's text, row by row from the top, then the guess. Returns an
-  /// empty guess when the text can't be read.
+  /// The photo's text, row by row from the top, then the guess. When the
+  /// text can't be read, the guess carries the error so the screen can say
+  /// why.
   static Future<ReceiptGuess> read(String imagePath) async {
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     try {
@@ -39,8 +40,8 @@ class ReceiptReader {
                   .join('  ')),
       ];
       return parseReceipt(text);
-    } catch (_) {
-      return const ReceiptGuess();
+    } catch (e) {
+      return ReceiptGuess(error: e.toString());
     } finally {
       await recognizer.close();
     }

@@ -5,7 +5,13 @@
 /// Nothing here is trusted blindly: the Check and save screen shows every
 /// guess for the person to confirm or fix.
 class ReceiptGuess {
-  const ReceiptGuess({this.amount, this.date, this.store});
+  const ReceiptGuess({
+    this.amount,
+    this.date,
+    this.store,
+    this.lines = const <String>[],
+    this.error,
+  });
 
   /// Total in centavos, or null when no total could be found.
   final int? amount;
@@ -16,7 +22,17 @@ class ReceiptGuess {
   /// Store name from the top of the receipt, or null.
   final String? store;
 
+  /// The text the phone read, row by row (shown under "See the text it
+  /// read").
+  final List<String> lines;
+
+  /// Why reading failed, when it did.
+  final String? error;
+
   bool get isEmpty => amount == null && date == null && store == null;
+
+  /// True when the phone couldn't read any text at all.
+  bool get noText => lines.isEmpty;
 }
 
 /// Labels that mark the amount actually paid, best first.
@@ -30,6 +46,10 @@ const List<String> _totalLabels = <String>[
   'net amount',
   'total sales',
   'total',
+  // E-wallet and bank screens: "Amount  - PHP 2,000.00".
+  'amount paid',
+  'amount sent',
+  'amount',
 ];
 
 /// Lines with these words hold other amounts (cash handed over, change,
@@ -58,6 +78,12 @@ const List<String> _notTotal = <String>[
 
 /// Lines near the top that are not the store's name.
 const List<String> _notStore = <String>[
+  'paid via',
+  'balance',
+  'deposit accounts',
+  'savings account',
+  'transaction history',
+  'recent transactions',
   'official receipt',
   'sales invoice',
   'invoice',
@@ -130,7 +156,9 @@ int? findTotal(List<String> lines) {
     for (var i = 0; i < lines.length; i++) {
       final l = lower[i];
       if (!l.contains(label)) continue;
-      if (label == 'total' && _hasAny(l, _notTotal)) continue;
+      if ((label == 'total' || label == 'amount') && _hasAny(l, _notTotal)) {
+        continue;
+      }
       final here = amountsIn(lines[i]);
       if (here.isNotEmpty) return here.last;
       // Labels and amounts are often read as separate lines: look at the
@@ -145,6 +173,13 @@ int? findTotal(List<String> lines) {
   int? best;
   for (var i = 0; i < lines.length; i++) {
     if (_hasAny(lower[i], _notTotal)) continue;
+    // "Available balance" on one row and "PHP 13,063.66" on the next: the
+    // amount belongs to the excluded label above it.
+    if (i > 0 &&
+        _hasAny(lower[i - 1], _notTotal) &&
+        amountsIn(lines[i - 1]).isEmpty) {
+      continue;
+    }
     // "11.21.26" is a date, not ₱11.21.
     if (_ymd.hasMatch(lines[i]) || _dmyOrMdy.hasMatch(lines[i])) continue;
     for (final a in amountsIn(lines[i])) {
@@ -173,6 +208,12 @@ final RegExp _ymd = RegExp(r'\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b');
 final RegExp _dmyOrMdy = RegExp(r'\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})\b');
 final RegExp _monthFirst = RegExp(
   r'\b([a-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2}|\d{2})\b',
+  caseSensitive: false,
+);
+/// "NOV 19" with no year (bank app history): this year, or last year if
+/// that would be in the future.
+final RegExp _monthDayOnly = RegExp(
+  r'^\s*([a-z]{3})[a-z]*\.?\s+(\d{1,2})\s*$',
   caseSensitive: false,
 );
 final RegExp _dayFirst = RegExp(
@@ -223,6 +264,16 @@ DateTime? findDate(List<String> lines, DateTime today) {
       if (d != null) return d;
     }
   }
+  for (final line in lines) {
+    final m = _monthDayOnly.firstMatch(line);
+    if (m == null) continue;
+    final month = _months[m.group(1)!.toLowerCase()];
+    if (month == null) continue;
+    final day = int.parse(m.group(2)!);
+    final d = _valid(today.year, month, day, today) ??
+        _valid(today.year - 1, month, day, today);
+    if (d != null) return d;
+  }
   return null;
 }
 
@@ -236,10 +287,15 @@ String _titleCase(String s) {
       .join(' ');
 }
 
-/// The store: the first line near the top that reads like a name.
+final RegExp _clock = RegExp(r'\b\d{1,2}:\d{2}\b');
+
+/// The store: the first line near the top that reads like a name, before
+/// any amount appears (below that it's items or account details).
 String? findStore(List<String> lines) {
   for (final raw in lines.take(6)) {
     final line = raw.trim();
+    if (amountsIn(line).isNotEmpty) break;
+    if (_clock.hasMatch(line)) continue; // a phone's status bar
     if (line.length < 3 || line.length > 40) continue;
     final lower = line.toLowerCase();
     if (_hasAny(lower, _notStore)) continue;
@@ -261,5 +317,6 @@ ReceiptGuess parseReceipt(List<String> lines, {DateTime? today}) {
     amount: findTotal(clean),
     date: findDate(clean, today ?? DateTime.now()),
     store: findStore(clean),
+    lines: clean,
   );
 }

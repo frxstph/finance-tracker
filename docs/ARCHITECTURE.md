@@ -590,3 +590,17 @@ CI copies every `ci/android/*.kt` next to MainActivity (taking its package
 line), merges `ci/android/res/`, and adds the receivers and the
 POST_NOTIFICATIONS / RECEIVE_BOOT_COMPLETED / USE_BIOMETRIC permissions to
 the manifest.
+
+## 28. v1.13.1 Scan fixes
+
+- Release builds: keep rules for ML Kit and the plugin
+  (`ci/android/proguard-rules.pro`); text reading returned nothing on the
+  phone.
+- Reading errors are no longer swallowed: `ReceiptGuess.error` and
+  `ReceiptGuess.lines` reach Check and save, which says what went wrong and
+  offers "See the text it read".
+- Parser: "Amount" (e-wallet / bank screens) as a last-resort label;
+  amounts on the row under "balance" etc. are ignored; "NOV 19" with no
+  year; the store is only looked for above the first amount, skipping
+  status-bar rows and bank-app headings. Tests use the text of a GCash
+  receipt and a bank app screen.

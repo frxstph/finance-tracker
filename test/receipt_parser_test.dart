@@ -112,4 +112,63 @@ void main() {
     expect(g.date, DateTime(2026, 11, 21));
     expect(g.store, 'Corner Bakery');
   });
+
+  group('e-wallet and bank screens', () {
+    test('GCash payment receipt', () {
+      final g = parseReceipt(<String>[
+        'SHELL DAKILA',
+        'Paid via GCash',
+        'Amount  500.00',
+        'Total  ₱ 500.00',
+        'Your payment was successfully processed. You may present',
+        'reference number below as your proof of payment.',
+        'Date  Nov 10, 2026 10:21 PM',
+        'Reference No.  862973989',
+        'QRPH Invoice No.  782698',
+      ], today: today);
+      expect(g.amount, 50000);
+      expect(g.date, DateTime(2026, 11, 10));
+      expect(g.store, 'Shell Dakila');
+    });
+
+    test('bank app: the transfer, not the balance', () {
+      final g = parseReceipt(<String>[
+        '2:59 M BPI in',
+        'Deposit accounts',
+        'SAVINGS ACCOUNT',
+        'Available balance',
+        'PHP 13,063.66',
+        'Total balance',
+        'PHP 13,063.66',
+        'Show details',
+        'Transaction history',
+        'Recent transactions',
+        'InstaPay Transfer',
+        'YOUR RECENT TRANSACTION',
+        'Amount  - PHP 2,000.00',
+        'NOV 19',
+      ], today: today);
+      expect(g.amount, 200000);
+      expect(g.date, DateTime(2026, 11, 19));
+      expect(g.store, isNull);
+    });
+
+    test('label and amount on separate rows', () {
+      expect(
+        findTotal(<String>['Available balance', 'PHP 13,063.66', 'Amount',
+            '- PHP 2,000.00']),
+        200000,
+      );
+    });
+
+    test('month and day with no year', () {
+      expect(findDate(<String>['NOV 19'], today), DateTime(2026, 11, 19));
+      expect(findDate(<String>['DEC 30'], today), DateTime(2025, 12, 30));
+    });
+
+    test('keeps the lines it read', () {
+      final g = parseReceipt(<String>['  A  ', '', 'B'], today: today);
+      expect(g.lines, <String>['A', 'B']);
+    });
+  });
 }
