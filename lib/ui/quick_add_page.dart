@@ -481,33 +481,12 @@ class ScannedReceipt {
   final ReceiptGuess guess;
 }
 
-/// Top of "Check and save": says what was filled in from the receipt, why
-/// nothing was, and lets you see the text the phone read.
+/// Top of "Check and save": says what was filled in from the receipt, or
+/// why nothing was.
 class _ScanNote extends StatelessWidget {
   const _ScanNote({required this.guess});
 
   final ReceiptGuess guess;
-
-  void _showText(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Text it read'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(guess.lines.join('\n')),
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -573,17 +552,7 @@ class _ScanNote extends StatelessWidget {
               ),
             ],
           ),
-          if (guess.lines.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 28),
-              child: TextButton(
-                style: TextButton.styleFrom(foregroundColor: fg),
-                onPressed: () => _showText(context),
-                child: const Text('See the text it read'),
-              ),
-            )
-          else
-            const SizedBox(height: 8),
+          const SizedBox(height: 8),
         ],
       ),
     );

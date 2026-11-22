@@ -613,3 +613,22 @@ HeroController serves one navigator; the lock screen's took it, and when it
 was removed the root navigator was left without one, so pushing pages
 (Settings and others) failed in release builds. Fixed by wrapping the lock
 screen's Navigator in `HeroControllerScope.none`.
+
+## 30. v1.13.3 Reading GCash and bank screenshots
+
+Tuned on a set of real GCash screenshots (send money, QR pay, bank
+transfer, loan payment, load). Tests keep their layout and wording with
+made-up names, numbers and amounts.
+- Dates: "Oct 31,2026" (no space after the comma), "Nov 15 2026,", and
+  reader slips "0ct" / "N0v" / "Ju1" / "Auq" fixed before matching.
+- Amounts: "4.000.00" (dot read for a comma); zero amounts ignored.
+- Store: hidden names on transfers ("JU•••N S.") become "Sent to JU…N S.";
+  "Sent via" rows skipped.
+- `ReceiptGuess.reference`: the Ref No. / Reference No. digits, for spotting
+  the same receipt twice (needed by "Add several photos").
+- "See the text it read" removed from Check and save; errors still show.
+
+Next (planned, see the "Add several receipts" canvas): pick up to 30
+photos → read each → "Check before adding" with Ready / Check / Needs a
+fix / Possible duplicate (same reference, or same amount and date) → fix
+one by one → add → summary with Undo all.

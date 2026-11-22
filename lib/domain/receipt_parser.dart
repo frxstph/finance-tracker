@@ -9,6 +9,7 @@ class ReceiptGuess {
     this.amount,
     this.date,
     this.store,
+    this.reference,
     this.lines = const <String>[],
     this.error,
   });
@@ -22,8 +23,10 @@ class ReceiptGuess {
   /// Store name from the top of the receipt, or null.
   final String? store;
 
-  /// The text the phone read, row by row (shown under "See the text it
-  /// read").
+  /// Reference number, digits only, or null. For spotting duplicates.
+  final String? reference;
+
+  /// The text the phone read, row by row.
   final List<String> lines;
 
   /// Why reading failed, when it did.
@@ -79,6 +82,7 @@ const List<String> _notTotal = <String>[
 /// Lines near the top that are not the store's name.
 const List<String> _notStore = <String>[
   'paid via',
+  'sent via',
   'balance',
   'deposit accounts',
   'savings account',
@@ -109,7 +113,7 @@ const List<String> _notStore = <String>[
 
 /// "1,248.50", "₱1,248.50", "P 1 248.50", "PHP1248.50", "1248,50".
 final RegExp _money = RegExp(
-  r'(?:₱|php|p)?\s*(\d{1,3}(?:[ ,]\d{3})+|\d+)[.,](\d{2})(?!\d)',
+  r'(?:₱|php|p)?\s*(\d{1,3}(?:[ ,.]\d{3})+|\d+)[.,](\d{2})(?!\d)',
   caseSensitive: false,
 );
 
@@ -117,12 +121,13 @@ final RegExp _money = RegExp(
 List<int> amountsIn(String line) {
   final out = <int>[];
   for (final m in _money.allMatches(line)) {
-    final whole = m.group(1)!.replaceAll(RegExp(r'[ ,]'), '');
+    final whole = m.group(1)!.replaceAll(RegExp(r'[ ,.]'), '');
     final pesos = int.tryParse(whole);
     final cents = int.tryParse(m.group(2)!);
     if (pesos == null || cents == null) continue;
     if (whole.length > 9) continue; // a reference number, not money
-    out.add(pesos * 100 + cents);
+    final amount = pesos * 100 + cents;
+    if (amount > 0) out.add(amount);
   }
   return out;
 }
@@ -207,7 +212,7 @@ const Map<String, int> _months = <String, int>{
 final RegExp _ymd = RegExp(r'\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b');
 final RegExp _dmyOrMdy = RegExp(r'\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})\b');
 final RegExp _monthFirst = RegExp(
-  r'\b([a-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2}|\d{2})\b',
+  r'\b([a-z]{3})[a-z]*\.?\s*(\d{1,2})(?:,\s*|\s+)(20\d{2}|\d{2})\b',
   caseSensitive: false,
 );
 /// "NOV 19" with no year (bank app history): this year, or last year if
@@ -235,7 +240,20 @@ DateTime? _valid(int y, int m, int d, DateTime today) {
 /// The first believable date on the receipt: not in the future and not
 /// more than about a year old. Slash dates are read month first (as on
 /// Philippine receipts) unless that can't be a date.
-DateTime? findDate(List<String> lines, DateTime today) {
+/// Phone text readers often read the letter O as a zero ("0ct", "N0v")
+/// and l as 1 ("Ju1"). Put month names right before looking for dates.
+String fixMonthSlips(String line) => line
+    .replaceAllMapped(
+        RegExp(r'\b0ct', caseSensitive: false), (_) => 'Oct')
+    .replaceAllMapped(
+        RegExp(r'\bN0v', caseSensitive: false), (_) => 'Nov')
+    .replaceAllMapped(
+        RegExp(r'\bJu1', caseSensitive: false), (_) => 'Jul')
+    .replaceAllMapped(
+        RegExp(r'\bAuq', caseSensitive: false), (_) => 'Aug');
+
+DateTime? findDate(List<String> rawLines, DateTime today) {
+  final lines = <String>[for (final l in rawLines) fixMonthSlips(l)];
   for (final line in lines) {
     for (final m in _ymd.allMatches(line)) {
       final d = _valid(int.parse(m.group(1)!), int.parse(m.group(2)!),
@@ -302,7 +320,35 @@ String? findStore(List<String> lines) {
     final letters = RegExp(r'[a-zA-Z]').allMatches(line).length;
     final digits = RegExp(r'\d').allMatches(line).length;
     if (letters < 3 || digits > letters ~/ 2) continue;
+    // A hidden name like "JU•••N S." (e-wallet transfers): keep it as
+    // shown, with the dots shortened.
+    if (RegExp(r'[•●·]').hasMatch(line)) {
+      return 'Sent to ${line.replaceAll(RegExp(r'[•●·]+'), '…')}';
+    }
     return line == line.toUpperCase() ? _titleCase(line) : line;
+  }
+  return null;
+}
+
+final RegExp _refLabel = RegExp(
+  r'\b(?:ref(?:erence)?\.?\s*(?:no|number|#)\.?)[:\s]*([0-9][0-9 ]{5,24}[0-9])',
+  caseSensitive: false,
+);
+
+/// The reference number ("Ref No. 8047 470 474329" → "8047470474329"),
+/// used to spot the same receipt twice. Null when there is none.
+String? findReference(List<String> lines) {
+  for (final line in lines) {
+    final m = _refLabel.firstMatch(line);
+    if (m != null) return m.group(1)!.replaceAll(' ', '');
+  }
+  // Label on one row, number on the next.
+  for (var i = 0; i + 1 < lines.length; i++) {
+    if (RegExp(r'^ref(erence)?\.?\s*(no|number)\.?\s*$', caseSensitive: false)
+        .hasMatch(lines[i].trim())) {
+      final n = lines[i + 1].replaceAll(' ', '');
+      if (RegExp(r'^\d{6,24}$').hasMatch(n)) return n;
+    }
   }
   return null;
 }
@@ -317,6 +363,7 @@ ReceiptGuess parseReceipt(List<String> lines, {DateTime? today}) {
     amount: findTotal(clean),
     date: findDate(clean, today ?? DateTime.now()),
     store: findStore(clean),
+    reference: findReference(clean),
     lines: clean,
   );
 }

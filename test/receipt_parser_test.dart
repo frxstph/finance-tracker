@@ -116,19 +116,19 @@ void main() {
   group('e-wallet and bank screens', () {
     test('GCash payment receipt', () {
       final g = parseReceipt(<String>[
-        'SHELL DAKILA',
+        'CORNER STATION',
         'Paid via GCash',
         'Amount  500.00',
         'Total  ₱ 500.00',
         'Your payment was successfully processed. You may present',
         'reference number below as your proof of payment.',
         'Date  Nov 10, 2026 10:21 PM',
-        'Reference No.  862973989',
-        'QRPH Invoice No.  782698',
+        'Reference No.  123456789',
+        'QRPH Invoice No.  654321',
       ], today: today);
       expect(g.amount, 50000);
       expect(g.date, DateTime(2026, 11, 10));
-      expect(g.store, 'Shell Dakila');
+      expect(g.store, 'Corner Station');
     });
 
     test('bank app: the transfer, not the balance', () {
@@ -137,9 +137,9 @@ void main() {
         'Deposit accounts',
         'SAVINGS ACCOUNT',
         'Available balance',
-        'PHP 13,063.66',
+        'PHP 12,345.67',
         'Total balance',
-        'PHP 13,063.66',
+        'PHP 12,345.67',
         'Show details',
         'Transaction history',
         'Recent transactions',
@@ -155,7 +155,7 @@ void main() {
 
     test('label and amount on separate rows', () {
       expect(
-        findTotal(<String>['Available balance', 'PHP 13,063.66', 'Amount',
+        findTotal(<String>['Available balance', 'PHP 12,345.67', 'Amount',
             '- PHP 2,000.00']),
         200000,
       );
@@ -169,6 +169,129 @@ void main() {
     test('keeps the lines it read', () {
       final g = parseReceipt(<String>['  A  ', '', 'B'], today: today);
       expect(g.lines, <String>['A', 'B']);
+    });
+  });
+
+  // Formats from real GCash / bank screenshots. Names, numbers and amounts
+  // are made up; the layout and wording are as the phone reads them.
+  group('GCash screenshot formats', () {
+    test('Send money: total amount sent, date on the Ref No. row', () {
+      final g = parseReceipt(<String>[
+        'MA•••••••A S.',
+        '+63 9•••••1234',
+        'Sent via GCash',
+        'Amount  75.00',
+        'Total Amount Sent  ₱75.00',
+        'Ref No. 1234 567 890123  Nov 20, 2026 11:07 AM',
+        '279g (gCO2e)',
+        'By going digital, you reduce your carbon footprint from',
+        'transportation, paper, and plastic.',
+      ], today: today);
+      expect(g.amount, 7500);
+      expect(g.date, DateTime(2026, 11, 20));
+      expect(g.store, 'Sent to MA…A S.');
+      expect(g.reference, '1234567890123');
+    });
+
+    test('Loan payment: total paid, not the remaining balance', () {
+      final g = parseReceipt(<String>[
+        'GLoan Dues',
+        'Loan Account No.  ABCD1234',
+        'Paid via GCash',
+        'Amount  650.40',
+        'Total Paid  ₱ 650.40',
+        'Remaining GLoan Balance  ₱ 3,250.10',
+        'Posting of your payment will be reflected within 24',
+        'hours.',
+        'Date  Nov 15 2026, 10:38 PM',
+        'Reference No.  1234567890123',
+      ], today: today);
+      expect(g.amount, 65040);
+      expect(g.date, DateTime(2026, 11, 15));
+      expect(g.store, 'GLoan Dues');
+      expect(g.reference, '1234567890123');
+    });
+
+    test('QR payment to a shop', () {
+      final g = parseReceipt(<String>[
+        'Burger Place BP0212 MAIN 1',
+        'Paid via GCash',
+        'Amount  195.00',
+        'Total  ₱ 195.00',
+        'Your payment was successfully processed. You may present',
+        'reference number below as your proof of payment.',
+        'Date  Oct 31, 2026 2:11 PM',
+        'Reference No.  123456789',
+        'QRPH Invoice No.  654321',
+      ], today: today);
+      expect(g.amount, 19500);
+      expect(g.date, DateTime(2026, 10, 31));
+      expect(g.store, 'Burger Place BP0212 MAIN 1');
+      expect(g.reference, '123456789');
+    });
+
+    test('Bank transfer: total with fee, date with no space after comma', () {
+      final g = parseReceipt(<String>[
+        'Bank Transfer Complete',
+        'Sent via GCash',
+        'Successful transactions are credited instantly. You will receive an update',
+        'about this transaction in your GCash Inbox.',
+        'Bank  Some Bank',
+        'Account No.  •••••••••••1234',
+        'Account Name  me',
+        'Transfer Method  Instapay',
+        'Transfer Amount  2,500.00',
+        '+Fee  10.00',
+        'Total  ₱ 2,510.00',
+        'Date  Oct 31,2026 07:27 AM',
+        'InstaPay Invoice No.  1234567',
+        'Ref No.  1234567890123',
+      ], today: today);
+      expect(g.amount, 251000);
+      expect(g.date, DateTime(2026, 10, 31));
+      expect(g.store, 'Bank Transfer Complete');
+      expect(g.reference, '1234567890123');
+    });
+
+    test('Load: total includes the convenience fee', () {
+      final g = parseReceipt(<String>[
+        'Go59 For Students With',
+        'FREE 5G',
+        'Some Name',
+        '+63 900 000 0000',
+        'Paid via GCash',
+        'Amount  59.00',
+        'Convenience Fee  1.00',
+        'Load Plus Health Insurance  FREE',
+        'Total  ₱ 60.00',
+        'Schedule for Autoload',
+        'Date  Oct 30, 2026 11:35 PM',
+        'Reference No.  1234567890123',
+      ], today: today);
+      expect(g.amount, 6000);
+      expect(g.date, DateTime(2026, 10, 30));
+    });
+
+    test('reader slips: 0ct for Oct, ₱ read as P, dots as thousands', () {
+      final g = parseReceipt(<String>[
+        'Total Amount Sent  P4.000.00',
+        'Ref No. 1234 567 890123  0ct 31, 2026 11:51 AM',
+      ], today: today);
+      expect(g.amount, 400000);
+      expect(g.date, DateTime(2026, 10, 31));
+    });
+
+    test('the same transfer twice has the same reference', () {
+      List<String> shot(String time) => <String>[
+            'JO•••N S.',
+            'Sent via GCash',
+            'Total Amount Sent  ₱150.00',
+            'Ref No. 1111 222 333444  Oct 30, 2026 $time',
+          ];
+      final a = parseReceipt(shot('10:21 AM'), today: today);
+      final b = parseReceipt(shot('9:44 AM'), today: today);
+      expect(a.reference, b.reference);
+      expect(a.amount, b.amount);
     });
   });
 }
