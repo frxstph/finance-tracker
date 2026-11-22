@@ -42,6 +42,23 @@ jobs:
           sed -i -E 's/android:label="[^"]*"/android:label="Finance Tracker"/' "$MANIFEST"
           grep -q 'android:label="Finance Tracker"' "$MANIFEST"
 
+      - name: Android setup for scan and app lock
+        run: |
+          set -e
+          ACT=$(find android/app/src/main -name MainActivity.kt | head -n 1)
+          test -n "$ACT"
+          PKG=$(grep -m1 '^package ' "$ACT")
+          { echo "$PKG"; tail -n +2 ci/android/MainActivity.kt; } > "$ACT"
+          cat "$ACT"
+          cp ci/android/proguard-rules.pro android/app/proguard-rules.pro
+          GRADLE=android/app/build.gradle.kts
+          grep -q 'signingConfig = signingConfigs.getByName("debug")' "$GRADLE"
+          sed -i 's|signingConfig = signingConfigs.getByName("debug")|signingConfig = signingConfigs.getByName("debug")\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")|' "$GRADLE"
+          grep -n 'proguard' "$GRADLE"
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i 's|<application|<uses-permission android:name="android.permission.USE_BIOMETRIC"/>\n    <application|' "$MANIFEST"
+          grep -n 'USE_BIOMETRIC' "$MANIFEST"
+
       - name: Install fixed debug keystore
         run: |
           mkdir -p ~/.android

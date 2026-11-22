@@ -515,3 +515,44 @@ Design: the "Dashboard polish v1.11.1" and "Scan button concept" canvases.
   opens the normal add screen. The + button is gone from Dashboard and
   Entries; Monthly and Loans keep their own Add.
 - Smaller fixes: "Tap to count" caption, tighter month row.
+
+## 26. v1.12 Receipt scan, app lock, CSV export
+
+**Receipt scan.** Scan (middle of the tab bar) → Scan a receipt (phone's
+camera app) or Choose a photo → "Reading the receipt…" →
+`QuickAddPage(scan: ScannedReceipt)` titled **Check and save**, with the
+photo attached and the amount, date and store (as the note) filled in. A
+note at the top says what was read; nothing saves without the person
+tapping Save.
+- `data/receipt_reader.dart`: ML Kit text recognition (Latin, on the phone,
+  no internet). Lines on the same row are joined left to right so a label
+  and its amount stay together.
+- `domain/receipt_parser.dart` (unit tested): total from the best labelled
+  line (grand total, amount due, … total; never subtotal, cash, change,
+  VAT), else the largest amount that isn't cash/change; date month-first
+  like PH receipts, not in the future, at most ~13 months old; store from
+  the first name-like line near the top.
+- Android: `ci/android/proguard-rules.pro` silences R8 for ML Kit's other
+  scripts.
+
+**App lock.** Settings › App lock: Lock the app (4 or 6 digit PIN, typed
+twice), Change PIN, Use fingerprint or face.
+- `data/lock_store.dart`: settings in `app_lock.json` (not in backups). Only
+  a salted SHA-256 of the PIN is stored.
+- `state/lock_controller.dart` (`LockScope`): locks on start and after the
+  app has been away ≥ 1 minute; 5 wrong PINs → wait 30 s. `whileAway()`
+  wraps the camera, gallery, file picker and share sheet so returning from
+  them doesn't lock.
+- `ui/lock_screen.dart` sits over every page via `MaterialApp.builder`, in
+  its own Navigator. "Forgot PIN?" explains that the only way back in is
+  clearing app data and restoring a backup.
+- Android: `ci/android/MainActivity.kt` (FlutterFragmentActivity for
+  local_auth; `finance_tracker/window` channel hides the recent-apps
+  preview on Android 13+ while the lock is on, screenshots still allowed),
+  USE_BIOMETRIC permission. CI copies these in after `flutter create`.
+
+**CSV export.** Settings › Export entries (CSV): every entry, oldest first,
+columns Date, Type, Amount (plain number, money out negative), In or out,
+For (bill / loan / income name), Note, Has photo. UTF-8 with BOM for Excel;
+cells starting with = + - @ get a ' so sheets don't run them.
+(`domain/csv_export.dart`, `data/csv_file.dart`.)

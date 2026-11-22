@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 
 import '../data/backup.dart';
+import '../data/csv_file.dart';
 import '../data/photos.dart';
 import '../data/repository.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
 import '../domain/bill_schedule.dart';
 import '../domain/calc.dart';
+import '../domain/csv_export.dart';
 import '../domain/summary.dart';
 import '../domain/weeks.dart';
 
@@ -596,6 +598,24 @@ class AppState extends ChangeNotifier {
   Future<void> exportBackup() async {
     final file = await _backup.exportZip();
     await _backup.share(file);
+  }
+
+  /// Every entry as a CSV file, opened in the share sheet.
+  Future<void> exportCsv() async {
+    final csv = entriesToCsv(_entries, (e) {
+      switch (e.type) {
+        case EntryType.bill:
+          return billById(e.billId)?.name ?? '';
+        case EntryType.loanPayment:
+        case EntryType.loanReceived:
+          return loanById(e.loanId)?.name ?? '';
+        case EntryType.income:
+          return incomeById(e.incomeId)?.name ?? '';
+        default:
+          return '';
+      }
+    });
+    await shareCsv(csv, DateTime.now());
   }
 
   /// Reads and validates a backup without changing anything.

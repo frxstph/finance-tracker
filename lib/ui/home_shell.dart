@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../data/receipt_reader.dart';
+import '../state/lock_controller.dart';
 
 import 'accounts_page.dart';
 import 'bill_form_page.dart';
@@ -11,11 +15,13 @@ import 'loans_page.dart';
 import 'quick_add_page.dart';
 import 'theme.dart';
 import 'settings_page.dart';
+import 'widgets/dialogs.dart';
 import 'widgets/name_amount_dialog.dart';
 
 /// Bottom navigation: Dashboard, Entries, a raised Scan button in the
-/// middle, Monthly and Loans. Scan is how spending is added on Dashboard and
-/// Entries; Monthly and Loans keep their own add button.
+/// middle, Monthly and Loans. Scan (camera, gallery or by hand) is how
+/// spending is added on Dashboard and Entries; Monthly and Loans keep their
+/// own add button.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -127,11 +133,10 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  /// The middle Scan button: a sheet with the ways to add a spend. Receipt
-  /// scanning is the next update; adding by hand works now.
+  /// The middle Scan button: a sheet with the ways to add a spend.
   Future<void> _openScan() async {
     final theme = Theme.of(context);
-    final manual = await showModalBottomSheet<bool>(
+    final choice = await showModalBottomSheet<_ScanChoice>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
@@ -144,36 +149,100 @@ class _HomeShellState extends State<HomeShell> {
               Text('Add a spend', style: theme.textTheme.titleLarge),
               const SizedBox(height: 4),
               Text(
-                'Scanning receipts is coming in the next update.',
+                'Scan a receipt and the app fills in the amount for you.',
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 16),
-              const _ScanOption(
+              _ScanOption(
                 icon: Icons.document_scanner_outlined,
                 title: 'Scan a receipt',
-                subtitle: 'Coming soon',
+                subtitle: 'Opens the camera',
+                primary: true,
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_ScanChoice.camera),
               ),
               const SizedBox(height: 8),
-              const _ScanOption(
+              _ScanOption(
                 icon: Icons.photo_library_outlined,
                 title: 'Choose a photo',
-                subtitle: 'Coming soon',
+                subtitle: 'A receipt or e-wallet screenshot',
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_ScanChoice.gallery),
               ),
               const SizedBox(height: 8),
               _ScanOption(
                 icon: Icons.edit_outlined,
                 title: 'Add without a photo',
                 subtitle: 'Type the amount yourself',
-                onTap: () => Navigator.of(sheetContext).pop(true),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_ScanChoice.manual),
               ),
             ],
           ),
         ),
       ),
     );
-    if (!mounted || manual != true) return;
-    _openQuickAdd();
+    if (!mounted || choice == null) return;
+    if (choice == _ScanChoice.manual) {
+      _openQuickAdd();
+      return;
+    }
+    await _scanReceipt(choice == _ScanChoice.camera
+        ? ImageSource.camera
+        : ImageSource.gallery);
+  }
+
+  /// Takes or picks the photo, reads it on the phone, then opens Check and
+  /// save with what was found.
+  Future<void> _scanReceipt(ImageSource source) async {
+    final XFile? photo;
+    try {
+      photo = await LockScope.read(context).whileAway(
+        () => ImagePicker().pickImage(
+          source: source,
+          maxWidth: 2000,
+          imageQuality: 85,
+        ),
+      );
+    } catch (e) {
+      if (mounted) showMessage(context, 'Could not open the camera: $e');
+      return;
+    }
+    if (photo == null || !mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: <Widget>[
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+              SizedBox(width: 16),
+              Expanded(child: Text('Reading the receipt…')),
+            ],
+          ),
+        ),
+      ),
+    );
+    final path = photo.path;
+    final guess = await ReceiptReader.read(path);
+    if (!mounted) return;
+    Navigator.of(context).pop(); // the "Reading" dialog
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => QuickAddPage(
+          scan: ScannedReceipt(photoPath: path, guess: guess),
+        ),
+      ),
+    );
   }
 
   /// Tab bar slots: Dashboard, Entries, (Scan), Monthly, Loans.
@@ -283,32 +352,38 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-/// One choice in the Scan sheet; without [onTap] it shows as not ready yet.
+/// What was picked in the Scan sheet.
+enum _ScanChoice { camera, gallery, manual }
+
+/// One choice in the Scan sheet. The [primary] one is filled green.
 class _ScanOption extends StatelessWidget {
   const _ScanOption({
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.onTap,
+    required this.onTap,
+    this.primary = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final enabled = onTap != null;
-    final fg = enabled
-        ? theme.colorScheme.onSurface
-        : theme.colorScheme.onSurfaceVariant;
+    final scheme = theme.colorScheme;
+    final fg = primary ? scheme.onPrimary : scheme.onSurface;
     return Material(
-      color: enabled
-          ? theme.colorScheme.primaryContainer
-          : theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(16),
+      color: primary ? scheme.primary : scheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: primary
+            ? BorderSide.none
+            : BorderSide(color: scheme.outlineVariant),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -318,8 +393,7 @@ class _ScanOption extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: <Widget>[
-                Icon(icon,
-                    color: enabled ? theme.colorScheme.primary : fg),
+                Icon(icon, color: primary ? fg : scheme.primary),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -333,7 +407,9 @@ class _ScanOption extends StatelessWidget {
                       Text(
                         subtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                          color: primary
+                              ? fg.withAlpha(220)
+                              : scheme.onSurfaceVariant,
                         ),
                       ),
                     ],

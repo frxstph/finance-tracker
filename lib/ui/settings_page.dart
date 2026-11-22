@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../data/backup.dart';
 import '../state/app_state.dart';
+import '../state/lock_controller.dart';
+import 'pin_pages.dart';
 import 'theme.dart';
 import 'widgets/dialogs.dart';
 
-/// Export and restore backups, plus the app version.
+/// App lock, backups, CSV export and the app version.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -19,9 +21,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _export() async {
     final state = AppScope.read(context);
+    final lock = LockScope.read(context);
     setState(() => _busy = true);
     try {
-      await state.exportBackup();
+      await lock.whileAway(state.exportBackup);
     } catch (e) {
       if (mounted) showMessage(context, 'Could not export: $e');
     } finally {
@@ -31,9 +34,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _restore() async {
     final state = AppScope.read(context);
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
+    final FilePickerResult? result =
+        await LockScope.read(context).whileAway(
+      () => FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      ),
     );
     if (!mounted) return;
     final path =
@@ -93,13 +99,104 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _exportCsv() async {
+    final state = AppScope.read(context);
+    final lock = LockScope.read(context);
+    if (state.allEntries.isEmpty) {
+      showMessage(context, 'No entries to export yet.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await lock.whileAway(state.exportCsv);
+    } catch (e) {
+      if (mounted) showMessage(context, 'Could not export: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _toggleLock(bool on) async {
+    final lock = LockScope.read(context);
+    if (on) {
+      final pin = await askNewPin(context);
+      if (pin == null || !mounted) return;
+      await lock.setPin(pin.pin, pin.digits);
+      if (mounted) showMessage(context, 'App lock is on.');
+    } else {
+      final ok = await askCurrentPin(context, title: 'Turn off app lock');
+      if (!ok || !mounted) return;
+      await lock.disable();
+      if (mounted) showMessage(context, 'App lock is off.');
+    }
+  }
+
+  Future<void> _changePin() async {
+    final lock = LockScope.read(context);
+    final ok = await askCurrentPin(context, title: 'Change PIN');
+    if (!ok || !mounted) return;
+    final pin = await askNewPin(context, digits: lock.digits);
+    if (pin == null || !mounted) return;
+    await lock.setPin(pin.pin, pin.digits);
+    if (mounted) showMessage(context, 'PIN changed.');
+  }
+
+  Future<void> _toggleBiometrics(bool on) async {
+    final lock = LockScope.read(context);
+    if (on) {
+      final ok = await lock
+          .confirmBiometrics('Confirm to use fingerprint or face unlock');
+      if (!ok || !mounted) return;
+    }
+    await lock.setBiometrics(on);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lock = LockScope.of(context);
+    final theme = Theme.of(context);
+    Widget heading(String text) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text(
+            text,
+            style: theme.textTheme.titleSmall
+                ?.copyWith(color: theme.colorScheme.primary),
+          ),
+        );
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: <Widget>[
           if (_busy) const LinearProgressIndicator(),
+          heading('App lock'),
+          SwitchListTile(
+            secondary: const Icon(Icons.lock_outline),
+            title: const Text('Lock the app'),
+            subtitle: Text(lock.enabled
+                ? 'Asks for your ${lock.digits}-digit PIN when you open it'
+                : 'Ask for a PIN when the app opens'),
+            value: lock.enabled,
+            onChanged: _busy ? null : _toggleLock,
+          ),
+          if (lock.enabled) ...<Widget>[
+            ListTile(
+              leading: const Icon(Icons.pin_outlined),
+              title: const Text('Change PIN'),
+              subtitle: const Text('Switch between 4 and 6 digits here too'),
+              onTap: _changePin,
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.fingerprint),
+              title: const Text('Use fingerprint or face'),
+              subtitle: Text(lock.biometricsAvailable
+                  ? 'Your PIN still works as a backup'
+                  : 'Not set up on this phone'),
+              value: lock.biometrics,
+              onChanged: lock.biometricsAvailable ? _toggleBiometrics : null,
+            ),
+          ],
+          const Divider(),
+          heading('Your data'),
           ListTile(
             leading: const Icon(Icons.upload_file_outlined),
             title: const Text('Export backup'),
@@ -113,6 +210,13 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: const Text('Replace everything with a backup zip'),
             enabled: !_busy,
             onTap: _restore,
+          ),
+          ListTile(
+            leading: const Icon(Icons.table_view_outlined),
+            title: const Text('Export entries (CSV)'),
+            subtitle: const Text('Opens in Excel or Google Sheets'),
+            enabled: !_busy,
+            onTap: _exportCsv,
           ),
           const Divider(),
           const ListTile(

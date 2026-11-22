@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
 import '../domain/money.dart';
+import '../domain/receipt_parser.dart';
 import '../state/app_state.dart';
 import 'widgets/amount_field.dart';
 import 'widgets/dialogs.dart';
@@ -22,6 +23,7 @@ class QuickAddPage extends StatefulWidget {
     this.initialBillId,
     this.initialLoanId,
     this.initialAmount,
+    this.scan,
   });
 
   /// When set, the form edits this entry.
@@ -30,6 +32,10 @@ class QuickAddPage extends StatefulWidget {
   final int? initialBillId;
   final int? initialLoanId;
   final int? initialAmount;
+
+  /// Opened from Scan: the receipt photo and what was read from it. The
+  /// screen becomes "Check and save" with those filled in.
+  final ScannedReceipt? scan;
 
   @override
   State<QuickAddPage> createState() => _QuickAddPageState();
@@ -75,6 +81,17 @@ class _QuickAddPageState extends State<QuickAddPage> {
         _amount.text = centavosToInput(a);
         _autoAmountText = _amount.text;
       }
+      final scan = widget.scan;
+      if (scan != null) {
+        _photoChange = PhotoChange.replace;
+        _newPhotoPath = scan.photoPath;
+        final g = scan.guess;
+        if (g.amount != null && g.amount! > 0) {
+          _amount.text = centavosToInput(g.amount!);
+        }
+        if (g.date != null) _date = g.date!;
+        if (g.store != null) _note.text = g.store!;
+      }
     }
   }
 
@@ -93,7 +110,9 @@ class _QuickAddPageState extends State<QuickAddPage> {
   /// Opened with the amount already known (a Pay button) or editing: keep
   /// the keyboard closed so the photo button is in view.
   bool get _focusAmount =>
-      widget.existing == null && widget.initialAmount == null;
+      widget.existing == null &&
+      widget.initialAmount == null &&
+      (widget.scan == null || widget.scan!.guess.amount == null);
 
   bool get _amountIsAuto =>
       _amount.text.trim().isEmpty || _amount.text == _autoAmountText;
@@ -244,7 +263,9 @@ class _QuickAddPageState extends State<QuickAddPage> {
       appBar: AppBar(
         title: Text(_isEditing
             ? 'Edit entry'
-            : _type == EntryType.loanPayment
+            : widget.scan != null
+                ? 'Check and save'
+                : _type == EntryType.loanPayment
                 ? 'Pay a loan'
                 : 'Add entry'),
         actions: <Widget>[
@@ -260,6 +281,10 @@ class _QuickAddPageState extends State<QuickAddPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
+          if (widget.scan != null) ...<Widget>[
+            _ScanNote(guess: widget.scan!.guess),
+            const SizedBox(height: 16),
+          ],
           AmountField(
             controller: _amount,
             autofocus: _focusAmount,
@@ -444,5 +469,65 @@ class _QuickAddPageState extends State<QuickAddPage> {
         ? 'Due this month ${formatPeso(due)}'
         : 'Next payment ${formatPeso(state.loanPaymentSuggestion(loan))}';
     return '$dueText · Balance ${formatPeso(balance)}';
+  }
+}
+
+
+/// A receipt photo and what was read from it.
+class ScannedReceipt {
+  const ScannedReceipt({required this.photoPath, required this.guess});
+
+  final String photoPath;
+  final ReceiptGuess guess;
+}
+
+/// Top of "Check and save": says what was filled in from the receipt.
+class _ScanNote extends StatelessWidget {
+  const _ScanNote({required this.guess});
+
+  final ReceiptGuess guess;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final read = <String>[
+      if (guess.amount != null) 'the total',
+      if (guess.date != null) 'the date',
+      if (guess.store != null) 'the store',
+    ];
+    final String message;
+    if (read.isEmpty) {
+      message = 'Couldn’t read this receipt. Type the amount; the photo '
+          'is attached.';
+    } else {
+      final what = read.length == 1
+          ? read.single
+          : '${read.sublist(0, read.length - 1).join(', ')} and ${read.last}';
+      message = 'Filled in $what from your receipt. Check them before you '
+          'save.${guess.amount == null ? ' Couldn’t find the total, so '
+              'type it in.' : ''}';
+    }
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.document_scanner_outlined,
+              color: theme.colorScheme.onPrimaryContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onPrimaryContainer),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../state/lock_controller.dart';
+
 /// Shows the current receipt photo (if any) with buttons to add or remove.
 class PhotoSection extends StatelessWidget {
   const PhotoSection({
@@ -45,10 +47,13 @@ class PhotoSection extends StatelessWidget {
       ),
     );
     if (source == null) return;
-    final XFile? picked = await ImagePicker().pickImage(
-      source: source,
-      imageQuality: 70,
-      maxWidth: 1600,
+    if (!context.mounted) return;
+    final XFile? picked = await LockScope.read(context).whileAway(
+      () => ImagePicker().pickImage(
+        source: source,
+        imageQuality: 70,
+        maxWidth: 1600,
+      ),
     );
     if (picked == null) return;
     onPicked(picked.path);

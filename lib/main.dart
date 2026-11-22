@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'data/backup.dart';
 import 'data/db.dart';
+import 'data/lock_store.dart';
 import 'data/photos.dart';
 import 'data/repository.dart';
 import 'state/app_state.dart';
+import 'state/lock_controller.dart';
 import 'ui/home_shell.dart';
+import 'ui/lock_screen.dart';
 import 'ui/theme.dart';
 
 Future<void> main() async {
@@ -19,7 +22,10 @@ Future<void> main() async {
       photos: photos,
       backup: BackupService(repo, photos),
     );
-    runApp(FinanceApp(state: state));
+    // Load the lock first so nothing shows before the PIN screen.
+    final lock = LockController(await LockStore.open());
+    await lock.load();
+    runApp(FinanceApp(state: state, lock: lock));
     await state.load();
   } catch (e) {
     runApp(StartupErrorApp(message: e.toString()));
@@ -27,21 +33,50 @@ Future<void> main() async {
 }
 
 class FinanceApp extends StatelessWidget {
-  const FinanceApp({super.key, required this.state});
+  const FinanceApp({super.key, required this.state, required this.lock});
 
   final AppState state;
+  final LockController lock;
 
   @override
   Widget build(BuildContext context) {
-    return AppScope(
-      state: state,
-      child: MaterialApp(
-        title: 'Finance Tracker',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(Brightness.light),
-        darkTheme: buildTheme(Brightness.dark),
-        themeMode: ThemeMode.system,
-        home: const HomeShell(),
+    return LockScope(
+      controller: lock,
+      child: AppScope(
+        state: state,
+        child: MaterialApp(
+          title: 'Finance Tracker',
+          debugShowCheckedModeBanner: false,
+          theme: buildTheme(Brightness.light),
+          darkTheme: buildTheme(Brightness.dark),
+          themeMode: ThemeMode.system,
+          home: const HomeShell(),
+          // The lock screen sits on top of every page while locked.
+          builder: (context, child) => ListenableBuilder(
+            listenable: lock,
+            builder: (context, _) {
+              final locked = lock.locked;
+              return Stack(
+                children: <Widget>[
+                  ExcludeSemantics(
+                    excluding: locked,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                  if (locked)
+                    Positioned.fill(
+                      // Its own navigator so the lock screen can show
+                      // dialogs and tooltips.
+                      child: Navigator(
+                        onGenerateRoute: (_) => MaterialPageRoute<void>(
+                          builder: (_) => const LockScreen(),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
