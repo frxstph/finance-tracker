@@ -14,6 +14,7 @@ import 'loan_form_page.dart';
 import 'import_page.dart';
 import 'loans_page.dart';
 import 'quick_add_page.dart';
+import 'scan_camera_page.dart';
 import 'theme.dart';
 import 'settings_page.dart';
 import 'widgets/dialogs.dart';
@@ -190,9 +191,31 @@ class _HomeShellState extends State<HomeShell> {
       return;
     }
     if (choice == _ScanChoice.camera) {
-      await _scanReceipt(ImageSource.camera);
+      await _openScanCamera();
     } else {
       await _choosePhotos();
+    }
+  }
+
+  /// The in-app scan camera; falls back to the phone's camera app when it
+  /// can't start.
+  Future<void> _openScanCamera() async {
+    final result = await Navigator.of(context).push<ScanCameraResult>(
+      MaterialPageRoute<ScanCameraResult>(
+        fullscreenDialog: true,
+        builder: (_) => const ScanCameraPage(),
+      ),
+    );
+    if (!mounted || result == null) return;
+    switch (result) {
+      case ScanPhoto(:final path):
+        await _readOne(path);
+      case ScanUseGallery():
+        await _choosePhotos();
+      case ScanTypeIt():
+        _openQuickAdd();
+      case ScanUseSystemCamera():
+        await _scanReceipt(ImageSource.camera);
     }
   }
 

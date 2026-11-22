@@ -64,7 +64,7 @@ jobs:
           xml = open(path).read()
           perms = "".join(
               f'    <uses-permission android:name="android.permission.{p}"/>\n'
-              for p in ("USE_BIOMETRIC", "POST_NOTIFICATIONS", "RECEIVE_BOOT_COMPLETED")
+              for p in ("USE_BIOMETRIC", "POST_NOTIFICATIONS", "RECEIVE_BOOT_COMPLETED", "CAMERA")
           )
           assert "<application" in xml
           xml = xml.replace("<application", perms + "    <application", 1)

@@ -1,7 +1,7 @@
 name: finance_tracker
 description: Personal offline finance tracker for Android.
 publish_to: none
-version: 1.14.3+1
+version: 1.15.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -26,6 +26,8 @@ dependencies:
   # Fingerprint / face unlock. v3 API: authenticate(localizedReason:,
   # biometricOnly:, persistAcrossBackgrounding:).
   local_auth: ">=3.0.0 <4.0.0"
+  # In-app scan camera with a live picture to read text from.
+  camera: ">=0.11.0 <0.13.0"
   # SHA-256 for the app lock PIN.
   crypto: ^3.0.3
 

@@ -689,3 +689,25 @@ v1.13.4, restyled:
   (#A6F2C9; light red / light orange when short or nothing spare), white
   "a day", mint payday pill with a calendar icon, bell icon before the next
   bill.
+
+## 34. v1.15 In-app scan camera
+
+Design: "Scan button concept" canvas, screen 3. Scan › Scan a receipt opens
+`ScanCameraPage` (camera package) instead of the phone's camera app:
+- Full-screen viewfinder with green corners. A few times a second
+  (every 450 ms) the live picture is read with ML Kit (NV21 frames →
+  `InputImage.fromBytes`, rotation from the sensor; portrait locked).
+- Lines it sees get faint outlines; the line holding the total gets a
+  green box, the date a light-green one (`_TextBoxesPainter`, same
+  coordinate mapping as ML Kit's example).
+- A live chip: "Looking for a receipt…" → "Looking for the total…" →
+  "Total found: ₱500.00" → "… · hold still" once the same total shows on
+  consecutive frames; the shutter glows then.
+- Light (torch) toggle; Choose photos instead; Type it instead.
+- The shutter takes a full photo, which is read again (`ReceiptReader`)
+  for Check and save.
+- If the camera can't start (no permission, error), the screen says why and
+  offers "Use the phone's camera" (the old image_picker flow).
+- The camera is released when the app is paused and reopened on resume;
+  `_starting` stops the permission prompt's pause/resume from opening two.
+- CI adds the CAMERA permission.
