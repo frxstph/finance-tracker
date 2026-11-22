@@ -643,3 +643,30 @@ payday pill and "Next: Water · Tue" (`nextDueText` in
 than 250dp use `safe_to_spend_widget_small.xml` (amount, "a day", payday).
 Amounts always show, app lock or not (the person's call: the widget exists
 to show the number). Data keys: big, suffix, tone, payday, date, nextDue.
+
+## 32. v1.14 Choose photos (one or several)
+
+Design: "Add several receipts" canvas. The Scan sheet has three choices:
+Scan a receipt (camera), Choose photos (gallery, multi-select), Add without
+a photo.
+- One photo → Check and save, as with the camera (`_readOne`).
+- Several (first 30) → `ImportPage`: reads each on the phone with a
+  progress grid (Stop and review what's read), then **Check before
+  adding**: summary (count, date range, total ticked), filters (All /
+  Needs attention / Ready), a row per photo with tick box, thumbnail,
+  amount, date, type and status pill.
+- `domain/bulk_import.dart` (unit tested) `reviewDrafts`: Needs a fix (no
+  amount, no date, future date: not ticked), Possible duplicate (same
+  reference as an earlier photo, or same amount and date as an earlier
+  photo or an existing money-out entry: not ticked), Check (reader guessed
+  the date's year or the amount, or the date is over 60 days old: ticked),
+  Ready (ticked). A hand-fixed photo skips the Check hints.
+- Tapping a row opens **Fix one**: the photo (pinch to zoom), amount,
+  date (outlined when missing), Daily / One-time, note; Save and next walks
+  through the photos still needing a fix or a check; Leave it out unticks.
+- "Ticked ones go in as" sets the type for all.
+- Add → `AppState.addEntries` (photos copied into receipts) → summary:
+  count, total by type, left out (and duplicates), cash and Safe to spend
+  before → after, **Undo all** (`deleteEntriesById`).
+- Reader flags behind Check: `ReceiptGuess.amountGuessed` (no labelled
+  total; `labelledTotal` vs `largestAmount`) and `dateGuessed` (no year).

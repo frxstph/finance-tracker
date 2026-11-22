@@ -10,6 +10,8 @@ class ReceiptGuess {
     this.date,
     this.store,
     this.reference,
+    this.amountGuessed = false,
+    this.dateGuessed = false,
     this.lines = const <String>[],
     this.error,
   });
@@ -25,6 +27,13 @@ class ReceiptGuess {
 
   /// Reference number, digits only, or null. For spotting duplicates.
   final String? reference;
+
+  /// True when no line was labelled as the total, so [amount] is the
+  /// biggest amount on the photo: worth a second look.
+  final bool amountGuessed;
+
+  /// True when the date had no year ("NOV 19") and the year was assumed.
+  final bool dateGuessed;
 
   /// The text the phone read, row by row.
   final List<String> lines;
@@ -155,7 +164,12 @@ bool _isLetter(String ch) =>
 
 /// The total: the amount on (or right after) the best "total" line; if no
 /// line is labelled, the largest amount that isn't cash, change or tax.
-int? findTotal(List<String> lines) {
+int? findTotal(List<String> lines) =>
+    labelledTotal(lines) ?? largestAmount(lines);
+
+/// The amount on (or right after) the best "total" line, or null when no
+/// line is labelled.
+int? labelledTotal(List<String> lines) {
   final lower = <String>[for (final l in lines) l.toLowerCase()];
   for (final label in _totalLabels) {
     for (var i = 0; i < lines.length; i++) {
@@ -175,6 +189,13 @@ int? findTotal(List<String> lines) {
       }
     }
   }
+  return null;
+}
+
+/// The fallback total: the largest amount that isn't cash, change, tax or a
+/// balance.
+int? largestAmount(List<String> lines) {
+  final lower = <String>[for (final l in lines) l.toLowerCase()];
   int? best;
   for (var i = 0; i < lines.length; i++) {
     if (_hasAny(lower[i], _notTotal)) continue;
@@ -353,17 +374,32 @@ String? findReference(List<String> lines) {
   return null;
 }
 
+/// True when [lines] hold a full date (with a year), not just "NOV 19".
+bool hasFullDate(List<String> lines, DateTime today) {
+  final withoutShort = <String>[
+    for (final l in lines)
+      if (!_monthDayOnly.hasMatch(fixMonthSlips(l))) l,
+  ];
+  return findDate(withoutShort, today) != null;
+}
+
 /// Reads [lines] (top to bottom) into a [ReceiptGuess].
 ReceiptGuess parseReceipt(List<String> lines, {DateTime? today}) {
   final clean = <String>[
     for (final l in lines)
       if (l.trim().isNotEmpty) l.trim(),
   ];
+  final day = today ?? DateTime.now();
+  final amount = findTotal(clean);
+  final date = findDate(clean, day);
   return ReceiptGuess(
-    amount: findTotal(clean),
-    date: findDate(clean, today ?? DateTime.now()),
+    amount: amount,
+    date: date,
     store: findStore(clean),
     reference: findReference(clean),
+    amountGuessed: amount != null && labelledTotal(clean) == null,
+    dateGuessed: date != null && !hasFullDate(clean, day),
     lines: clean,
   );
 }
+

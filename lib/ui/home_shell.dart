@@ -11,6 +11,7 @@ import 'bills_page.dart';
 import 'dashboard_page.dart';
 import 'entries_page.dart';
 import 'loan_form_page.dart';
+import 'import_page.dart';
 import 'loans_page.dart';
 import 'quick_add_page.dart';
 import 'theme.dart';
@@ -165,8 +166,8 @@ class _HomeShellState extends State<HomeShell> {
               const SizedBox(height: 8),
               _ScanOption(
                 icon: Icons.photo_library_outlined,
-                title: 'Choose a photo',
-                subtitle: 'A receipt or e-wallet screenshot',
+                title: 'Choose photos',
+                subtitle: 'Pick one or several, up to 30',
                 onTap: () =>
                     Navigator.of(sheetContext).pop(_ScanChoice.gallery),
               ),
@@ -188,9 +189,49 @@ class _HomeShellState extends State<HomeShell> {
       _openQuickAdd();
       return;
     }
-    await _scanReceipt(choice == _ScanChoice.camera
-        ? ImageSource.camera
-        : ImageSource.gallery);
+    if (choice == _ScanChoice.camera) {
+      await _scanReceipt(ImageSource.camera);
+    } else {
+      await _choosePhotos();
+    }
+  }
+
+  /// Most photos read in one go.
+  static const int _maxPhotos = 30;
+
+  /// Gallery with multi-select. One photo → Check and save, as with the
+  /// camera; several → read them all, then Check before adding.
+  Future<void> _choosePhotos() async {
+    List<XFile> photos;
+    try {
+      photos = await LockScope.read(context).whileAway(
+        () => ImagePicker().pickMultiImage(maxWidth: 2000, imageQuality: 85),
+      );
+    } catch (e) {
+      if (mounted) showMessage(context, 'Could not open your photos: $e');
+      return;
+    }
+    if (photos.isEmpty || !mounted) return;
+    if (photos.length == 1) {
+      await _readOne(photos.single.path);
+      return;
+    }
+    if (photos.length > _maxPhotos) {
+      showMessage(
+        context,
+        'Reading the first $_maxPhotos of ${photos.length} photos. Add the '
+        'rest after.',
+      );
+      photos = photos.sublist(0, _maxPhotos);
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => ImportPage(
+          photoPaths: <String>[for (final p in photos) p.path],
+        ),
+      ),
+    );
   }
 
   /// Takes or picks the photo, reads it on the phone, then opens Check and
@@ -210,7 +251,11 @@ class _HomeShellState extends State<HomeShell> {
       return;
     }
     if (photo == null || !mounted) return;
+    await _readOne(photo.path);
+  }
 
+  /// Reads one photo, then opens Check and save with what was found.
+  Future<void> _readOne(String path) async {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -231,7 +276,6 @@ class _HomeShellState extends State<HomeShell> {
         ),
       ),
     );
-    final path = photo.path;
     final guess = await ReceiptReader.read(path);
     if (!mounted) return;
     Navigator.of(context).pop(); // the "Reading" dialog

@@ -112,8 +112,9 @@ docs/              architecture spec
 
 ## Roadmap
 
-Done in v1.12–v1.13: receipt scan, app lock (PIN + fingerprint/face), CSV
-export, due date reminders, home screen widget.
+Done in v1.12–v1.14: receipt scan, app lock (PIN + fingerprint/face), CSV
+export, due date reminders, home screen widget, Choose photos (add up to 30
+receipts at once with a check-before-adding review).
 
 **Maybe:** polish the month-ahead plan (Plan ahead already covers most of
 it).

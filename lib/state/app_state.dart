@@ -413,6 +413,46 @@ class AppState extends ChangeNotifier {
     await _reloadEntries();
   }
 
+  /// Adds several new entries at once ("Choose photos"), each with its
+  /// photo copied into receipts. Returns the new ids, for Undo all.
+  Future<List<int>> addEntries(List<Entry> entries, List<String?> photoPaths) async {
+    final ids = <int>[];
+    try {
+      for (var i = 0; i < entries.length; i++) {
+        final e = entries[i];
+        final path = i < photoPaths.length ? photoPaths[i] : null;
+        final photo = path == null ? null : await _photos.importFile(path);
+        try {
+          ids.add(await _repo.insertEntry(Entry(
+            type: e.type,
+            amount: e.amount,
+            note: e.note.trim(),
+            date: e.date,
+            photo: photo,
+            createdAt: e.createdAt,
+          )));
+        } catch (_) {
+          await _photos.delete(photo);
+          rethrow;
+        }
+      }
+    } finally {
+      await _reloadEntries();
+    }
+    return ids;
+  }
+
+  /// Removes the entries with [ids] and their photos (Undo all).
+  Future<void> deleteEntriesById(List<int> ids) async {
+    for (final id in ids) {
+      final e = entryById(id);
+      if (e == null) continue;
+      await _repo.deleteEntry(id);
+      await _photos.delete(e.photo);
+    }
+    await _reloadEntries();
+  }
+
   Future<void> _reloadEntries() async {
     _entries = await _repo.entries();
     _recompute();
