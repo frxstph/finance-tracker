@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../domain/calc.dart';
 import '../domain/dates.dart';
+import '../domain/models.dart';
 import '../domain/money.dart';
 import '../state/app_state.dart';
 import 'loan_form_page.dart';
@@ -19,7 +20,7 @@ Future<void> showCalculator(BuildContext context) {
 }
 
 /// A calculator plus three money tools: loan payments, splitting a bill and
-/// "Can I afford this?".
+/// "Can I buy it?".
 class CalculatorPage extends StatelessWidget {
   const CalculatorPage({super.key});
 
@@ -31,11 +32,13 @@ class CalculatorPage extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Calculator'),
           bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: <Widget>[
               Tab(text: 'Calculator'),
               Tab(text: 'Loan'),
               Tab(text: 'Split'),
-              Tab(text: 'Afford'),
+              Tab(text: 'Can I buy it?'),
             ],
           ),
         ),
@@ -556,8 +559,10 @@ class _SplitTabState extends State<_SplitTab>
 }
 
 // ---------------------------------------------------------------------------
-// Can I afford this?
+// Can I buy it?
 // ---------------------------------------------------------------------------
+
+enum _When { today, payday, pick }
 
 class _AffordTab extends StatefulWidget {
   const _AffordTab();
@@ -569,7 +574,8 @@ class _AffordTab extends StatefulWidget {
 class _AffordTabState extends State<_AffordTab>
     with AutomaticKeepAliveClientMixin<_AffordTab> {
   final TextEditingController _amount = TextEditingController();
-  DateTime _date = DateTime.now();
+  _When _when = _When.today;
+  DateTime _picked = DateTime.now();
 
   @override
   bool get wantKeepAlive => true;
@@ -580,16 +586,35 @@ class _AffordTabState extends State<_AffordTab>
     super.dispose();
   }
 
+  DateTime _today() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
+  DateTime _date(AppState state) {
+    switch (_when) {
+      case _When.today:
+        return _today();
+      case _When.payday:
+        return state.safeToSpendNow.payday;
+      case _When.pick:
+        return _picked;
+    }
+  }
+
   Future<void> _pickDate() async {
-    final now = DateTime.now();
+    final today = _today();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year + 2, 12, 31),
+      initialDate: _picked.isBefore(today) ? today : _picked,
+      firstDate: today,
+      lastDate: DateTime(today.year + 2, 12, 31),
     );
     if (picked == null || !mounted) return;
-    setState(() => _date = picked);
+    setState(() {
+      _picked = picked;
+      _when = _When.pick;
+    });
   }
 
   @override
@@ -597,26 +622,64 @@ class _AffordTabState extends State<_AffordTab>
     super.build(context);
     final theme = Theme.of(context);
     final state = AppScope.of(context);
+    final safe = state.safeToSpendNow;
     final amount = parseCentavos(_amount.text);
+    final date = _date(state);
     final result =
-        amount == null || amount <= 0 ? null : state.affordCheck(amount, _date);
+        amount == null || amount <= 0 ? null : state.affordCheck(amount, date);
+    final earliest = result == null || result.affordable
+        ? null
+        : state.earliestAffordableDay(amount!, date);
+    final green = incomeColor(context);
+    final red = debtColor(context);
+    final where = result == null
+        ? ''
+        : '${result.lowestFirstDay}–${result.lowestLastDay} '
+            '${shortMonthLabel(result.lowestMonth).split(' ').first}';
+    final paydayLabel = safe.paydayName == null
+        ? 'End of month'
+        : 'After payday (${ordinalDay(safe.payday.day)})';
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
+        Text('Check if you can buy something without running short later.',
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        const SizedBox(height: 16),
         AmountField(
           controller: _amount,
-          label: 'How much',
+          label: 'How much is it?',
           onChanged: (_) => setState(() {}),
         ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.event_outlined),
-          title: Text(dayLabel(_date)),
-          subtitle: const Text('When you’d spend it'),
-          onTap: _pickDate,
-        ),
+        const SizedBox(height: 16),
+        Text('When would you buy it?', style: theme.textTheme.titleSmall),
         const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: <Widget>[
+            ChoiceChip(
+              label: const Text('Today'),
+              selected: _when == _When.today,
+              onSelected: (_) => setState(() => _when = _When.today),
+            ),
+            ChoiceChip(
+              label: Text(paydayLabel),
+              selected: _when == _When.payday,
+              onSelected: (_) => setState(() => _when = _When.payday),
+            ),
+            ChoiceChip(
+              avatar: const Icon(Icons.event_outlined, size: 18),
+              label: Text(_when == _When.pick
+                  ? dayLabel(_picked)
+                  : 'Pick a date'),
+              selected: _when == _When.pick,
+              onSelected: (_) => _pickDate(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         if (result != null) ...<Widget>[
           _ResultCard(children: <Widget>[
             Row(
@@ -624,47 +687,55 @@ class _AffordTabState extends State<_AffordTab>
                 Icon(
                   result.affordable
                       ? Icons.check_circle
-                      : Icons.warning_amber_rounded,
-                  color: result.affordable
-                      ? incomeColor(context)
-                      : debtColor(context),
+                      : Icons.do_not_disturb_on_outlined,
+                  color: result.affordable ? green : red,
+                  size: 28,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     result.affordable
-                        ? 'Yes. Your cash stays above ₱0.'
-                        : 'Not yet. You’d run short.',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: result.affordable
-                          ? incomeColor(context)
-                          : debtColor(context),
+                        ? 'Yes, you can buy it'
+                        : 'Not on ${dayLabel(date)}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: result.affordable ? green : red,
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            _ResultLine(
-              'Lowest point after it '
-                  '(${result.lowestFirstDay}–${result.lowestLastDay} '
-                  '${shortMonthLabel(result.lowestMonth).split(' ').first})',
-              formatPeso(result.lowest),
-              color: balanceColor(context, result.lowest),
+            Text(
+              result.affordable
+                  ? 'Even at your tightest week after it ($where) you’d '
+                      'still have ${formatPeso(result.lowest)}.'
+                  : 'You’d be ${formatPeso(-result.lowest)} short around '
+                      '$where, before your money comes in.',
+              style: theme.textTheme.bodyLarge,
             ),
-            _ResultLine(
-              'Cash at the end of '
-                  '${shortMonthLabel(monthKey(_date)).split(' ').first}',
-              formatPeso(result.monthEnd),
-              color: balanceColor(context, result.monthEnd),
-            ),
+            if (!result.affordable) ...<Widget>[
+              const SizedBox(height: 12),
+              if (earliest != null)
+                FilledButton.tonalIcon(
+                  onPressed: () => setState(() {
+                    _picked = earliest;
+                    _when = _When.pick;
+                  }),
+                  icon: const Icon(Icons.event_available),
+                  label: Text('Earliest safe day: ${dayLabel(earliest)}'),
+                )
+              else
+                Text(
+                  'No safe day in the next 2 months at this price.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: red),
+                ),
+            ],
           ]),
           const SizedBox(height: 8),
           Text(
-            'Checked against "If all paid": your expected income arrives and '
-            'every bill and loan payment is made, through the end of next '
-            'month.',
+            'Assumes your monthly income arrives and every bill and loan '
+            'payment is made on time.',
             style: theme.textTheme.bodySmall,
           ),
         ],

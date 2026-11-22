@@ -454,3 +454,17 @@ every bill and loan payment the week blocks place before payday (overdue
 count today) plus anything recorded after today in that window. Per day =
 (cash up to today − set aside) ÷ days from today to payday (today counts,
 at least 1); shows "Short by ₱x" when negative. Tap for the breakdown.
+
+## 23. v1.10.1 (safe to spend looks past payday; "Can I buy it?")
+
+**Safe to spend** now also keeps back money for after payday: budget =
+min(free before payday, lowest week-block end cash from today through the
+end of the month after payday's month). Per day = budget ÷ days. The
+breakdown shows "Kept for bills after payday" and the tightest week.
+
+**"Can I buy it?"** (was "Afford"): "How much is it?", "When would you buy
+it?" (Today / After payday / Pick a date), then a plain answer ("Yes, you
+can buy it" or "Not on …", with how short and when). The purchase week is
+checked day by day (income later in the week does not count yet), later
+weeks by their end cash. When the answer is no, `earliestAffordable`
+scans up to 62 days ahead and offers the earliest safe day.

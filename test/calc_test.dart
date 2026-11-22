@@ -170,6 +170,69 @@ void main() {
       expect(s.days, 24);
     });
 
+    test('the week of the purchase is checked day by day', () {
+      // Pay arrives on the 19th: buying on the 15th is still too early, even
+      // though the 15–21 week ends fine.
+      final on15 = canAfford(
+        amount: 500000,
+        date: DateTime(2026, 11, 15),
+        today: today,
+        entries: cash,
+        bills: const <Bill>[rent],
+        loans: const <Loan>[],
+        incomes: const <IncomeSource>[pay],
+      );
+      expect(on15.affordable, isFalse);
+      final earliest = earliestAffordable(
+        amount: 500000,
+        from: DateTime(2026, 11, 12),
+        today: today,
+        entries: cash,
+        bills: const <Bill>[rent],
+        loans: const <Loan>[],
+        incomes: const <IncomeSource>[pay],
+      );
+      expect(earliest, DateTime(2026, 11, 19));
+      expect(
+          earliestAffordable(
+            amount: 999999900,
+            from: DateTime(2026, 11, 12),
+            today: today,
+            entries: cash,
+            bills: const <Bill>[rent],
+            loans: const <Loan>[],
+            incomes: const <IncomeSource>[pay],
+            maxDays: 10,
+          ),
+          isNull);
+    });
+
+    test('safe to spend keeps money for a big bill right after payday', () {
+      const tuition = Bill(
+        id: 2,
+        name: 'Tuition',
+        amount: 2900000,
+        frequency: BillFrequency.once,
+        startDate: '2026-11-20',
+      );
+      final s = safeToSpend(
+        today: today,
+        entries: cash,
+        bills: const <Bill>[tuition],
+        loans: const <Loan>[],
+        incomes: const <IncomeSource>[pay],
+      );
+      expect(s.free, 1000000, reason: 'nothing due before payday');
+      // Pay 20,000 on the 19th, tuition 29,000 on the 20th: the 15–21 week
+      // ends at 10,000 − 9,000 = 1,000 even with no spending.
+      expect(s.lowestAhead, 100000);
+      expect(s.lowestFirstDay, 15);
+      expect(s.budget, 100000);
+      expect(s.keptForLater, 900000);
+      expect(s.perDay, 100000 ~/ 9);
+      expect(s.short, isFalse);
+    });
+
     test('no monthly income: until the end of the month', () {
       final s = safeToSpend(
         today: today,

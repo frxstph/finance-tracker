@@ -238,7 +238,23 @@ AffordResult canAfford({
     );
     for (final b in blocks) {
       if (f.month == month && b.lastDay < on.day) continue;
-      final cash = b.endCash - amount;
+      var cash = b.endCash - amount;
+      if (f.month == month && b.firstDay <= on.day) {
+        // The week of the purchase: check the day itself (income later in
+        // the week has not arrived yet) and every day after it.
+        var run = b.startCash + b.recorded;
+        for (final item in b.items) {
+          if (item.day <= on.day) run += item.amount;
+        }
+        var low = run;
+        for (final item in b.items) {
+          if (item.day > on.day) {
+            run += item.amount;
+            if (run < low) low = run;
+          }
+        }
+        cash = low - amount;
+      }
       if (lowest == null || cash < lowest) {
         lowest = cash;
         lowMonth = f.month;
@@ -257,6 +273,35 @@ AffordResult canAfford({
   );
 }
 
+/// The first day from [from] (exclusive) up to [maxDays] days later on which
+/// spending [amount] is affordable, or null when none is.
+DateTime? earliestAffordable({
+  required int amount,
+  required DateTime from,
+  required DateTime today,
+  required List<Entry> entries,
+  required List<Bill> bills,
+  required List<Loan> loans,
+  List<IncomeSource> incomes = const <IncomeSource>[],
+  int maxDays = 62,
+}) {
+  final start = DateTime(from.year, from.month, from.day);
+  for (var i = 1; i <= maxDays; i++) {
+    final d = DateTime(start.year, start.month, start.day + i);
+    final r = canAfford(
+      amount: amount,
+      date: d,
+      today: today,
+      entries: entries,
+      bills: bills,
+      loans: loans,
+      incomes: incomes,
+    );
+    if (r.affordable) return d;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Safe to spend
 // ---------------------------------------------------------------------------
@@ -268,6 +313,10 @@ class SafeToSpend {
     required this.days,
     required this.payday,
     required this.paydayName,
+    required this.lowestAhead,
+    required this.lowestMonth,
+    required this.lowestFirstDay,
+    required this.lowestLastDay,
   });
 
   /// Cash recorded up to today.
@@ -288,15 +337,35 @@ class SafeToSpend {
   /// The income expected on [payday], or null when there is none.
   final String? paydayName;
 
+  /// The lowest week-block end cash from today through the end of the month
+  /// after payday's month, in "If all paid", and where it is. Anything spent
+  /// before payday comes out of every one of those blocks.
+  final int lowestAhead;
+  final String lowestMonth;
+  final int lowestFirstDay;
+  final int lowestLastDay;
+
   /// Cash free after what is due before payday. Negative means short.
   int get free => cashNow - dueBeforePayday;
 
+  /// What can be spent before payday without any week going below ₱0, now
+  /// or after payday: the smaller of [free] and [lowestAhead].
+  int get budget => free < lowestAhead ? free : lowestAhead;
+
+  /// Kept back from [free] for bills that come after payday.
+  int get keptForLater => free > budget ? free - budget : 0;
+
+  /// Short now (before payday) or later (a week after payday).
+  bool get short => budget < 0;
+
   /// What can be spent each day until payday, never below 0.
-  int get perDay => free <= 0 ? 0 : free ~/ days;
+  int get perDay => budget <= 0 ? 0 : budget ~/ days;
 }
 
 /// How much can be spent each day until the next monthly income arrives,
-/// after setting aside every bill and loan payment due before it.
+/// after setting aside every bill and loan payment due before it, and
+/// keeping back enough that no week until the end of the month after
+/// payday's month goes below ₱0 ("If all paid").
 SafeToSpend safeToSpend({
   required DateTime today,
   required List<Entry> entries,
@@ -348,15 +417,20 @@ SafeToSpend safeToSpend({
 
   // What goes out before payday: planned bill and loan payments (overdue
   // ones count today) and anything recorded after today in that window.
+  final horizon = monthKey(addMonths(DateTime(payday.year, payday.month), 1));
   final months = forecastMonths(
     fromMonth: current,
-    toMonth: next,
+    toMonth: horizon,
     entries: entries,
     bills: bills,
     loans: loans,
     incomes: incomes,
   );
   var due = 0;
+  int? lowest;
+  var lowMonth = current;
+  var lowFirst = 1;
+  var lowLast = 7;
   for (final f in months) {
     final blocks = weekBlocks(
       forecast: f,
@@ -368,6 +442,12 @@ SafeToSpend safeToSpend({
     );
     final first = parseMonthKey(f.month);
     for (final b in blocks) {
+      if (!b.past && (lowest == null || b.endCash < lowest)) {
+        lowest = b.endCash;
+        lowMonth = f.month;
+        lowFirst = b.firstDay;
+        lowLast = b.lastDay;
+      }
       for (final item in b.items) {
         if (item.amount >= 0) continue;
         final d = DateTime(first.year, first.month, item.day);
@@ -390,5 +470,9 @@ SafeToSpend safeToSpend({
     days: days,
     payday: payday,
     paydayName: paydayName,
+    lowestAhead: lowest ?? cash,
+    lowestMonth: lowMonth,
+    lowestFirstDay: lowFirst,
+    lowestLastDay: lowLast,
   );
 }

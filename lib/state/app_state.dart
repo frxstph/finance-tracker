@@ -86,6 +86,18 @@ class AppState extends ChangeNotifier {
         incomes: _incomes,
       );
 
+  /// First day after [from] (up to 2 months) when spending [amount] is safe.
+  DateTime? earliestAffordableDay(int amount, DateTime from) =>
+      earliestAffordable(
+        amount: amount,
+        from: from,
+        today: DateTime.now(),
+        entries: _entries,
+        bills: _bills,
+        loans: _loans,
+        incomes: _incomes,
+      );
+
   /// What can be spent each day until the next payday.
   SafeToSpend get safeToSpendNow => safeToSpend(
         today: DateTime.now(),

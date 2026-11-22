@@ -142,8 +142,16 @@ class _SafeToSpendCard extends StatelessWidget {
               line('Due before payday', signedPeso(-s.dueBeforePayday),
                   color: flowColor(dialogContext, -s.dueBeforePayday)),
               const Divider(),
-              line('Free to use', formatPeso(s.free),
-                  color: balanceColor(dialogContext, s.free), bold: true),
+              line('Free before payday', formatPeso(s.free),
+                  color: balanceColor(dialogContext, s.free)),
+              if (s.keptForLater > 0)
+                line(
+                  'Kept for bills after payday',
+                  signedPeso(-s.keptForLater),
+                  color: flowColor(dialogContext, -s.keptForLater),
+                ),
+              line('You can spend', formatPeso(s.budget),
+                  color: balanceColor(dialogContext, s.budget), bold: true),
               line('Days until payday', '${s.days}'),
               const Divider(),
               line('Each day', formatPeso(s.perDay),
@@ -151,9 +159,19 @@ class _SafeToSpendCard extends StatelessWidget {
                   bold: true),
               const SizedBox(height: 12),
               Text(
-                'Bills and loan payments due before payday are set aside '
-                'first. Overdue ones count as due today. Add your monthly '
-                'income and due days so this stays accurate.',
+                s.keptForLater > 0
+                    ? 'Some money is kept back because your tightest week '
+                        'after payday (${s.lowestFirstDay}–${s.lowestLastDay} '
+                        '${shortMonthLabel(s.lowestMonth).split(' ').first}) '
+                        'would otherwise run short.'
+                    : 'Bills and loan payments before payday are set aside '
+                        'first, and every week after payday stays above ₱0.',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Checked through the end of the month after payday. Overdue '
+                'payments count as due today.',
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -172,7 +190,7 @@ class _SafeToSpendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final short = s.free < 0;
+    final short = s.short;
     final color = short ? debtColor(context) : incomeColor(context);
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -195,7 +213,7 @@ class _SafeToSpendCard extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         short
-                            ? 'Short by ${formatPeso(-s.free)}'
+                            ? 'Short by ${formatPeso(-s.budget)}'
                             : '${formatPeso(s.perDay)} a day',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
