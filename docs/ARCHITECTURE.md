@@ -681,7 +681,8 @@ v1.13.4, restyled:
   with a 1dp light edge (#2EFFFFFF), 28dp corners. Android widgets can't
   blur the wallpaper, so the glass is a tint.
 - Two soft circles top-right (`widget_circles.xml`: white 6%, a lighter
-  shade of the glass, and white 10%, a step lighter), in an ImageView behind the text. The root is
+  shade of the glass, and white 10%, a step lighter; the 2×2 has only the
+  first, `widget_circles_small.xml`), in an ImageView behind the text. The root is
   `@android:id/background` with `clipToOutline` so Android 12+ clips them
   to the rounded corners.
 - Spaced capitals for "SAFE TO SPEND", condensed bold amount in mint

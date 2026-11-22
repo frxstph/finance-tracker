@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2×2 widget: just the first soft circle, a lighter shade of the glass. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="260dp"
+    android:height="200dp"
+    android:viewportWidth="260"
+    android:viewportHeight="200">
+    <path
+        android:fillColor="#0FFFFFFF"
+        android:pathData="M20,-10 a100,100 0 1,0 200,0 a100,100 0 1,0 -200,0" />
+</vector>
