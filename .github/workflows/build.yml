@@ -42,22 +42,38 @@ jobs:
           sed -i -E 's/android:label="[^"]*"/android:label="Finance Tracker"/' "$MANIFEST"
           grep -q 'android:label="Finance Tracker"' "$MANIFEST"
 
-      - name: Android setup for scan and app lock
+      - name: Android setup (scan, app lock, widget, reminders)
         run: |
           set -e
           ACT=$(find android/app/src/main -name MainActivity.kt | head -n 1)
           test -n "$ACT"
+          DIR=$(dirname "$ACT")
           PKG=$(grep -m1 '^package ' "$ACT")
-          { echo "$PKG"; tail -n +2 ci/android/MainActivity.kt; } > "$ACT"
-          cat "$ACT"
+          for f in ci/android/*.kt; do
+            { echo "$PKG"; tail -n +2 "$f"; } > "$DIR/$(basename "$f")"
+          done
+          ls "$DIR"
+          cp -r ci/android/res/. android/app/src/main/res/
           cp ci/android/proguard-rules.pro android/app/proguard-rules.pro
           GRADLE=android/app/build.gradle.kts
           grep -q 'signingConfig = signingConfigs.getByName("debug")' "$GRADLE"
           sed -i 's|signingConfig = signingConfigs.getByName("debug")|signingConfig = signingConfigs.getByName("debug")\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")|' "$GRADLE"
           grep -n 'proguard' "$GRADLE"
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          sed -i 's|<application|<uses-permission android:name="android.permission.USE_BIOMETRIC"/>\n    <application|' "$MANIFEST"
-          grep -n 'USE_BIOMETRIC' "$MANIFEST"
+          python3 - <<'EOF'
+          path = "android/app/src/main/AndroidManifest.xml"
+          xml = open(path).read()
+          perms = "".join(
+              f'    <uses-permission android:name="android.permission.{p}"/>\n'
+              for p in ("USE_BIOMETRIC", "POST_NOTIFICATIONS", "RECEIVE_BOOT_COMPLETED")
+          )
+          assert "<application" in xml
+          xml = xml.replace("<application", perms + "    <application", 1)
+          extra = open("ci/android/manifest-additions.xml").read()
+          i = xml.rindex("</application>")
+          xml = xml[:i] + extra + "    " + xml[i:]
+          open(path, "w").write(xml)
+          EOF
+          cat android/app/src/main/AndroidManifest.xml
 
       - name: Install fixed debug keystore
         run: |

@@ -1,7 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../data/app_prefs.dart';
 import '../data/backup.dart';
+import '../data/device_bridge.dart';
 import '../state/app_state.dart';
 import '../state/lock_controller.dart';
 import 'pin_pages.dart';
@@ -151,9 +153,36 @@ class _SettingsPageState extends State<SettingsPage> {
     await lock.setBiometrics(on);
   }
 
+  Future<void> _toggleReminders(bool on) async {
+    final prefs = PrefsScope.of(context);
+    if (!on) {
+      await prefs.setReminders(false);
+      return;
+    }
+    var allowed = await DeviceBridge.notificationsAllowed();
+    if (!allowed) {
+      final asked = await DeviceBridge.askNotifications();
+      if (asked) await DeviceBridge.waitForResume();
+      allowed = await DeviceBridge.notificationsAllowed();
+    }
+    if (!mounted) return;
+    if (!allowed) {
+      showMessage(
+        context,
+        'Notifications are off for this app. Turn them on in your phone’s '
+        'settings, then try again.',
+      );
+      return;
+    }
+    await prefs.setReminders(true);
+    if (mounted) showMessage(context, 'Reminders are on.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final lock = LockScope.of(context);
+    final prefs = PrefsScope.of(context);
+    final missing = AppScope.of(context).missingDueDays;
     final theme = Theme.of(context);
     Widget heading(String text) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -195,6 +224,18 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: lock.biometricsAvailable ? _toggleBiometrics : null,
             ),
           ],
+          const Divider(),
+          heading('Reminders'),
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_outlined),
+            title: const Text('Due date reminders'),
+            subtitle: Text(
+              'The evening before and the morning a bill or loan is due'
+              '${missing > 0 ? '. $missing ${missing == 1 ? 'item has' : 'items have'} no due day and won’t get one.' : ''}',
+            ),
+            value: prefs.reminders,
+            onChanged: _toggleReminders,
+          ),
           const Divider(),
           heading('Your data'),
           ListTile(

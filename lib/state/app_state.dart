@@ -8,6 +8,7 @@ import '../data/photos.dart';
 import '../data/repository.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
+import '../domain/reminders.dart';
 import '../domain/bill_schedule.dart';
 import '../domain/calc.dart';
 import '../domain/csv_export.dart';
@@ -77,6 +78,35 @@ class AppState extends ChangeNotifier {
         incomes: _incomes,
         today: DateTime.now(),
       );
+
+  /// Bills and loan payments still to pay this month and next, on their
+  /// due days (items with no due day are left out). Used for reminders.
+  List<DueItem> get upcomingDues {
+    final now = DateTime.now();
+    final months = forecastMonths(
+      fromMonth: currentMonthKey,
+      toMonth: monthKey(DateTime(now.year, now.month + 1, 1)),
+      entries: _entries,
+      bills: _bills,
+      loans: _loans,
+      incomes: _incomes,
+    );
+    final out = <DueItem>[];
+    for (final f in months) {
+      final first = parseMonthKey(f.month);
+      for (final block in weeksFor(f)) {
+        for (final item in block.items) {
+          if (item.kind == WeekItemKind.income || !item.dayKnown) continue;
+          out.add(DueItem(
+            date: DateTime(first.year, first.month, item.day),
+            label: item.label,
+            amount: -item.amount,
+          ));
+        }
+      }
+    }
+    return out;
+  }
 
   /// Active bills with no due day (counted on the 1st or today).
   List<Bill> get billsWithoutDueDay => <Bill>[

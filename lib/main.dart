@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'data/app_prefs.dart';
 import 'data/backup.dart';
 import 'data/db.dart';
 import 'data/lock_store.dart';
 import 'data/photos.dart';
 import 'data/repository.dart';
 import 'state/app_state.dart';
+import 'state/device_sync.dart';
 import 'state/lock_controller.dart';
 import 'ui/home_shell.dart';
 import 'ui/lock_screen.dart';
@@ -25,7 +27,10 @@ Future<void> main() async {
     // Load the lock first so nothing shows before the PIN screen.
     final lock = LockController(await LockStore.open());
     await lock.load();
-    runApp(FinanceApp(state: state, lock: lock));
+    final prefs = await AppPrefs.open();
+    runApp(FinanceApp(state: state, lock: lock, prefs: prefs));
+    // Widget and reminders follow the data from here on.
+    DeviceSync(state: state, lock: lock, prefs: prefs);
     await state.load();
   } catch (e) {
     runApp(StartupErrorApp(message: e.toString()));
@@ -33,14 +38,22 @@ Future<void> main() async {
 }
 
 class FinanceApp extends StatelessWidget {
-  const FinanceApp({super.key, required this.state, required this.lock});
+  const FinanceApp({
+    super.key,
+    required this.state,
+    required this.lock,
+    required this.prefs,
+  });
 
   final AppState state;
   final LockController lock;
+  final AppPrefs prefs;
 
   @override
   Widget build(BuildContext context) {
-    return LockScope(
+    return PrefsScope(
+      prefs: prefs,
+      child: LockScope(
       controller: lock,
       child: AppScope(
         state: state,
@@ -77,6 +90,7 @@ class FinanceApp extends StatelessWidget {
             },
           ),
         ),
+      ),
       ),
     );
   }

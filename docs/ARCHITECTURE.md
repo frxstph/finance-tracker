@@ -556,3 +556,37 @@ columns Date, Type, Amount (plain number, money out negative), In or out,
 For (bill / loan / income name), Note, Has photo. UTF-8 with BOM for Excel;
 cells starting with = + - @ get a ' so sheets don't run them.
 (`domain/csv_export.dart`, `data/csv_file.dart`.)
+
+## 27. v1.13 Due date reminders and the home screen widget
+
+Both are written natively in `ci/android/` (no extra Flutter packages) and
+fed from Dart over the `finance_tracker/window` channel
+(`data/device_bridge.dart`). `state/device_sync.dart` pushes new data a
+second after anything changes and whenever the app comes back to the front;
+it only sends when something actually changed.
+
+**Reminders** (Settings › Reminders › Due date reminders; off until turned
+on, asks for notification permission on Android 13+; the choice is kept in
+`prefs.json` via `data/app_prefs.dart`).
+- `AppState.upcomingDues`: unpaid bills and loan payments this month and
+  next, from the same week blocks the Dashboard uses; items with no due day
+  are skipped.
+- `domain/reminders.dart` (unit tested): per due day, one notification at
+  6 pm the evening before ("Due tomorrow") and one at 8 am on the day ("Due
+  today"); same-day items grouped, biggest first, "and N more", total; only
+  future times within 35 days. Ids are yyyymmdd×10+1/2.
+- Android: `Reminders.kt` saves the list and sets inexact
+  `setAndAllowWhileIdle` alarms (no exact-alarm permission);
+  `ReminderReceiver` posts the notification (channel "Due date reminders");
+  `BootReceiver` sets the alarms again after a restart or app update.
+
+**Widget** "Safe to spend" (`SafeToSpendWidget.kt`, layout
+`res/layout/safe_to_spend_widget.xml`, 3×2): the Safe to spend headline in
+its colour, "Payday in N days" (counted on the phone from the saved payday
+date, refreshed hourly), and "As of Sun 22 Nov". While App lock is on it
+shows "Locked" instead of the amount. Tapping opens the app.
+
+CI copies every `ci/android/*.kt` next to MainActivity (taking its package
+line), merges `ci/android/res/`, and adds the receivers and the
+POST_NOTIFICATIONS / RECEIVE_BOOT_COMPLETED / USE_BIOMETRIC permissions to
+the manifest.
