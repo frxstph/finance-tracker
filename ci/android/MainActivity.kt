@@ -33,11 +33,10 @@ class MainActivity : FlutterFragmentActivity() {
                 "updateWidget" -> {
                     val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
                     val edit = getSharedPreferences(SafeToSpendWidget.PREFS, MODE_PRIVATE).edit()
-                    for (key in listOf("headline", "tone", "payday", "asOf")) {
+                    for (key in listOf("big", "suffix", "tone", "payday", "date", "nextDue")) {
                         val value = args[key] as? String
                         if (value == null) edit.remove(key) else edit.putString(key, value)
                     }
-                    edit.putBoolean("hidden", args["hidden"] as? Boolean ?: false)
                     edit.apply()
                     SafeToSpendWidget.refresh(this)
                     result.success(null)

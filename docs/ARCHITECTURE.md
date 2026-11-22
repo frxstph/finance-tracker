@@ -632,3 +632,14 @@ Next (planned, see the "Add several receipts" canvas): pick up to 30
 photos → read each → "Check before adding" with Ready / Check / Needs a
 fix / Possible duplicate (same reference, or same amount and date) → fix
 one by one → add → summary with Undo all.
+
+## 31. v1.13.4 Widget redone
+
+Design: "Home screen widget" canvas. Solid background (no transparency),
+26dp corners. Top row "Safe to spend" + the date the numbers are from; big
+amount ("₱650") with "a day" beside it in the same colour; bottom row a
+payday pill and "Next: Water · Tue" (`nextDueText` in
+`state/device_sync.dart`, from `AppState.upcomingDues`). Widgets narrower
+than 250dp use `safe_to_spend_widget_small.xml` (amount, "a day", payday).
+Amounts always show, app lock or not (the person's call: the widget exists
+to show the number). Data keys: big, suffix, tone, payday, date, nextDue.

@@ -63,33 +63,38 @@ class DeviceSync {
     }
   }
 
-  /// What the widget shows: the same headline as the Safe to spend card,
-  /// the next payday (the widget counts the days itself), and the date the
-  /// numbers are from. Amounts are hidden while App lock is on.
+  /// What the widget shows: the Safe to spend amount ("₱650" + "a day"),
+  /// the date it's from, the next payday (the widget counts the days
+  /// itself) and the next bill or loan payment due. Always shows amounts.
   Map<String, Object?> widgetData() {
     final s = state.safeToSpendNow;
     final perDay = s.perDay ~/ 100 * 100;
-    final String headline;
+    final String big;
+    final String suffix;
     final String tone;
     if (s.short) {
-      headline = 'Hold off spending';
+      big = 'Hold off';
+      suffix = 'spending';
       tone = 'red';
     } else if (perDay == 0) {
-      headline = 'Nothing spare';
+      big = 'Nothing';
+      suffix = 'spare';
       tone = 'orange';
     } else {
-      headline = '${formatPeso(perDay)} a day';
+      big = formatPeso(perDay);
+      suffix = 'a day';
       tone = 'green';
     }
     final now = DateTime.now();
     return <String, Object?>{
-      'headline': headline,
+      'big': big,
+      'suffix': suffix,
       'tone': tone,
       'payday': s.paydayName == null
           ? null
           : DateFormat('yyyy-MM-dd').format(s.payday),
-      'asOf': 'As of ${DateFormat('EEE d MMM').format(now)}',
-      'hidden': lock.enabled,
+      'date': DateFormat('EEE d MMM').format(now),
+      'nextDue': nextDueText(state.upcomingDues, now),
     };
   }
 
@@ -100,4 +105,27 @@ class DeviceSync {
     lock.removeListener(_soon);
     prefs.removeListener(_soon);
   }
+}
+
+/// "Next: Water · Tue" for the soonest item due today or later; null when
+/// nothing is due.
+String? nextDueText(List<DueItem> dues, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  DueItem? next;
+  for (final d in dues) {
+    final day = DateTime(d.date.year, d.date.month, d.date.day);
+    if (day.isBefore(today)) continue;
+    if (next == null || day.isBefore(next.date)) next = d;
+  }
+  if (next == null) return null;
+  final day = DateTime(next.date.year, next.date.month, next.date.day);
+  final diff = day.difference(today).inDays;
+  final when = diff == 0
+      ? 'Today'
+      : diff == 1
+          ? 'Tomorrow'
+          : diff < 7
+              ? DateFormat('EEE').format(day)
+              : DateFormat('d MMM').format(day);
+  return 'Next: ${next.label} · $when';
 }

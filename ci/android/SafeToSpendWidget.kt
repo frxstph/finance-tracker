@@ -6,12 +6,15 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import android.view.View
 import android.widget.RemoteViews
 import java.util.Calendar
 
-// Home screen widget: Safe to spend, payday countdown, and the date the
-// numbers are from. The app writes the data (MainActivity "updateWidget");
-// the countdown is worked out here so it stays right between app opens.
+// Home screen widget: Safe to spend ("₱650" + "a day"), the date it's from,
+// the payday countdown and the next bill due. The app writes the data
+// (MainActivity "updateWidget"); the countdown is worked out here so it
+// stays right between app opens. Narrow widgets (2×2) get a compact layout.
 class SafeToSpendWidget : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
@@ -19,8 +22,20 @@ class SafeToSpendWidget : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         for (id in appWidgetIds) {
-            appWidgetManager.updateAppWidget(id, build(context))
+            appWidgetManager.updateAppWidget(id, build(context, appWidgetManager, id))
         }
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        appWidgetManager.updateAppWidget(
+            appWidgetId,
+            build(context, appWidgetManager, appWidgetId)
+        )
     }
 
     companion object {
@@ -32,43 +47,55 @@ class SafeToSpendWidget : AppWidgetProvider() {
                 ComponentName(context, SafeToSpendWidget::class.java)
             )
             for (id in ids) {
-                manager.updateAppWidget(id, build(context))
+                manager.updateAppWidget(id, build(context, manager, id))
             }
         }
 
-        private fun build(context: Context): RemoteViews {
+        private fun build(
+            context: Context,
+            manager: AppWidgetManager,
+            id: Int
+        ): RemoteViews {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val views = RemoteViews(context.packageName, R.layout.safe_to_spend_widget)
-            val headline = prefs.getString("headline", null)
-            val hidden = prefs.getBoolean("hidden", false)
+            val minWidth = manager.getAppWidgetOptions(id)
+                .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 300)
+            val small = minWidth in 1..249
+            val views = RemoteViews(
+                context.packageName,
+                if (small) R.layout.safe_to_spend_widget_small
+                else R.layout.safe_to_spend_widget
+            )
+            val big = prefs.getString("big", null)
             val color = when (prefs.getString("tone", "green")) {
                 "red" -> 0xFFB3261E.toInt()
                 "orange" -> 0xFFA65300.toInt()
                 else -> 0xFF1F6B45.toInt()
             }
-            when {
-                headline == null -> {
-                    views.setTextViewText(R.id.widget_headline, "Open the app")
-                    views.setTextColor(R.id.widget_headline, 0xFF17211B.toInt())
-                }
-                hidden -> {
-                    views.setTextViewText(R.id.widget_headline, "Locked")
-                    views.setTextColor(R.id.widget_headline, 0xFF17211B.toInt())
-                }
-                else -> {
-                    views.setTextViewText(R.id.widget_headline, headline)
-                    views.setTextColor(R.id.widget_headline, color)
-                }
+            if (big == null) {
+                views.setTextViewText(R.id.widget_big, "Open the app")
+                views.setTextViewText(R.id.widget_suffix, "")
+                views.setTextColor(R.id.widget_big, 0xFF17211B.toInt())
+            } else {
+                views.setTextViewText(R.id.widget_big, big)
+                views.setTextViewText(R.id.widget_suffix, prefs.getString("suffix", "") ?: "")
+                views.setTextColor(R.id.widget_big, color)
+                views.setTextColor(R.id.widget_suffix, color)
             }
-            views.setTextViewText(
+            val payday = paydayText(prefs.getString("payday", null))
+            views.setTextViewText(R.id.widget_payday, payday)
+            views.setViewVisibility(
                 R.id.widget_payday,
-                paydayText(prefs.getString("payday", null))
+                if (payday.isEmpty()) View.GONE else View.VISIBLE
             )
-            views.setTextViewText(
-                R.id.widget_asof,
-                if (hidden) "Open to see Safe to spend"
-                else prefs.getString("asOf", "") ?: ""
-            )
+            if (!small) {
+                views.setTextViewText(R.id.widget_date, prefs.getString("date", "") ?: "")
+                val next = prefs.getString("nextDue", null)
+                views.setTextViewText(R.id.widget_next, next ?: "")
+                views.setViewVisibility(
+                    R.id.widget_next,
+                    if (next == null) View.GONE else View.VISIBLE
+                )
+            }
             val open = Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             views.setOnClickPendingIntent(

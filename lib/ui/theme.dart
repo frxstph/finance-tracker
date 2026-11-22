@@ -9,7 +9,7 @@ import '../domain/money.dart';
 const Color seedColor = Color(0xFF2E7D5B);
 
 /// App version shown in settings. Keep in sync with pubspec.yaml.
-const String appVersion = '1.13.3';
+const String appVersion = '1.13.4';
 
 ThemeData buildTheme(Brightness brightness) {
   final scheme =
