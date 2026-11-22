@@ -671,3 +671,20 @@ a photo.
   before → after, **Undo all** (`deleteEntriesById`).
 - Reader flags behind Check: `ReceiptGuess.amountGuessed` (no labelled
   total; `labelledTotal` vs `largestAmount`) and `dateGuessed` (no year).
+
+## 33. v1.14.3 Widget look: dark glass
+
+Design: "Home screen widget" canvas, "Picked" artboard (from four
+directions: dark glass, light frost, green card, split). Same layout as
+v1.13.4, restyled:
+- Background `widget_background.xml`: smoky see-through tint (#750E1411)
+  with a 1dp light edge (#2EFFFFFF), 28dp corners. Android widgets can't
+  blur the wallpaper, so the glass is a tint.
+- Two soft circles top-right (`widget_circles.xml`, light mint 10% and
+  white 5%), in an ImageView behind the text. The root is
+  `@android:id/background` with `clipToOutline` so Android 12+ clips them
+  to the rounded corners.
+- Spaced capitals for "SAFE TO SPEND", condensed bold amount in mint
+  (#A6F2C9; light red / light orange when short or nothing spare), white
+  "a day", mint payday pill with a calendar icon, bell icon before the next
+  bill.

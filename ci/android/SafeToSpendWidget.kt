@@ -11,7 +11,8 @@ import android.view.View
 import android.widget.RemoteViews
 import java.util.Calendar
 
-// Home screen widget: Safe to spend ("₱650" + "a day"), the date it's from,
+// Home screen widget (dark glass with soft circles): Safe to spend
+// ("₱650" + "a day"), the date it's from,
 // the payday countdown and the next bill due. The app writes the data
 // (MainActivity "updateWidget"); the countdown is worked out here so it
 // stays right between app opens. Narrow widgets (2×2) get a compact layout.
@@ -66,20 +67,20 @@ class SafeToSpendWidget : AppWidgetProvider() {
                 else R.layout.safe_to_spend_widget
             )
             val big = prefs.getString("big", null)
+            // Light shades that read on the dark glass.
             val color = when (prefs.getString("tone", "green")) {
-                "red" -> 0xFFB3261E.toInt()
-                "orange" -> 0xFFA65300.toInt()
-                else -> 0xFF1F6B45.toInt()
+                "red" -> 0xFFFFB4AB.toInt()
+                "orange" -> 0xFFFFC58A.toInt()
+                else -> 0xFFA6F2C9.toInt()
             }
             if (big == null) {
                 views.setTextViewText(R.id.widget_big, "Open the app")
                 views.setTextViewText(R.id.widget_suffix, "")
-                views.setTextColor(R.id.widget_big, 0xFF17211B.toInt())
+                views.setTextColor(R.id.widget_big, 0xFFFFFFFF.toInt())
             } else {
                 views.setTextViewText(R.id.widget_big, big)
                 views.setTextViewText(R.id.widget_suffix, prefs.getString("suffix", "") ?: "")
                 views.setTextColor(R.id.widget_big, color)
-                views.setTextColor(R.id.widget_suffix, color)
             }
             val payday = paydayText(prefs.getString("payday", null))
             views.setTextViewText(R.id.widget_payday, payday)

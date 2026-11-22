@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Dark glass: a smoky see-through tint with a thin light edge. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#FFF4F8F5" />
-    <corners android:radius="26dp" />
+    <solid android:color="#750E1411" />
+    <stroke
+        android:width="1dp"
+        android:color="#2EFFFFFF" />
+    <corners android:radius="28dp" />
 </shape>
