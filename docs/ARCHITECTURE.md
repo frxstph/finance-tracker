@@ -650,7 +650,7 @@ Design: "Add several receipts" canvas. The Scan sheet has three choices:
 Scan a receipt (camera), Choose photos (gallery, multi-select), Add without
 a photo.
 - One photo → Check and save, as with the camera (`_readOne`).
-- Several (first 30) → `ImportPage`: reads each on the phone with a
+- Several (the picker stops at 30; older pickers that ignore the limit are cut to the first 30) → `ImportPage`: reads each on the phone with a
   progress grid (Stop and review what's read), then **Check before
   adding**: summary (count, date range, total ticked), filters (All /
   Needs attention / Ready), a row per photo with tick box, thumbnail,

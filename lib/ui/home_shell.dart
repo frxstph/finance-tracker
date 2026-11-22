@@ -167,7 +167,7 @@ class _HomeShellState extends State<HomeShell> {
               _ScanOption(
                 icon: Icons.photo_library_outlined,
                 title: 'Choose photos',
-                subtitle: 'Pick one or several, up to 30',
+                subtitle: 'Receipts or e-wallet screenshots from your gallery',
                 onTap: () =>
                     Navigator.of(sheetContext).pop(_ScanChoice.gallery),
               ),
@@ -205,7 +205,11 @@ class _HomeShellState extends State<HomeShell> {
     List<XFile> photos;
     try {
       photos = await LockScope.read(context).whileAway(
-        () => ImagePicker().pickMultiImage(maxWidth: 2000, imageQuality: 85),
+        () => ImagePicker().pickMultiImage(
+          maxWidth: 2000,
+          imageQuality: 85,
+          limit: _maxPhotos,
+        ),
       );
     } catch (e) {
       if (mounted) showMessage(context, 'Could not open your photos: $e');
@@ -216,6 +220,7 @@ class _HomeShellState extends State<HomeShell> {
       await _readOne(photos.single.path);
       return;
     }
+    // Older phones' pickers may ignore the limit.
     if (photos.length > _maxPhotos) {
       showMessage(
         context,
