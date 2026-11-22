@@ -78,10 +78,16 @@ class FinanceApp extends StatelessWidget {
                   if (locked)
                     Positioned.fill(
                       // Its own navigator so the lock screen can show
-                      // dialogs and tooltips.
-                      child: Navigator(
-                        onGenerateRoute: (_) => MaterialPageRoute<void>(
-                          builder: (_) => const LockScreen(),
+                      // dialogs and tooltips. HeroControllerScope.none keeps
+                      // it from taking the app's hero controller: a hero
+                      // controller can serve only one navigator, and when
+                      // the lock screen closed it left the main navigator
+                      // without one, so pages (Settings…) stopped opening.
+                      child: HeroControllerScope.none(
+                        child: Navigator(
+                          onGenerateRoute: (_) => MaterialPageRoute<void>(
+                            builder: (_) => const LockScreen(),
+                          ),
                         ),
                       ),
                     ),

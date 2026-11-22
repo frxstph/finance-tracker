@@ -604,3 +604,12 @@ the manifest.
   year; the store is only looked for above the first amount, skipping
   status-bar rows and bank-app headings. Tests use the text of a GCash
   receipt and a bank app screen.
+
+## 29. v1.13.2 App lock broke navigation
+
+The lock screen's own Navigator (in `MaterialApp.builder`) picked up
+MaterialApp's HeroController from the surrounding `HeroControllerScope`. A
+HeroController serves one navigator; the lock screen's took it, and when it
+was removed the root navigator was left without one, so pushing pages
+(Settings and others) failed in release builds. Fixed by wrapping the lock
+screen's Navigator in `HeroControllerScope.none`.
