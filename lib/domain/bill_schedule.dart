@@ -79,6 +79,26 @@ List<int?> billDueDays(Bill bill, String month) {
   }
 }
 
+/// True when every payment of [bill] falls on a known day. Only old monthly
+/// bills with no start date have none: they are counted on the 1st (or
+/// today), which can make the start of a month look short.
+bool billHasDueDay(Bill bill) => bill.startDate != null;
+
+/// Start date to store when giving a bill with no start date the due [day]:
+/// that day in the month of its first payment, or in [today]'s month when it
+/// has none yet, so months it was already due in stay due.
+String startDateForDueDay(
+    Bill bill, int day, List<Entry> entries, DateTime today) {
+  var first = monthKey(today);
+  for (final e in entries) {
+    if (e.type != EntryType.bill || e.billId != bill.id) continue;
+    if (e.date.length < 7) continue;
+    final m = e.date.substring(0, 7);
+    if (m.compareTo(first) < 0) first = m;
+  }
+  return dateKey(dayInMonth(parseMonthKey(first), day));
+}
+
 /// Why a bill has nothing due in [month]: it starts later, or it is done.
 /// Null when something is due.
 String? billNotDueReason(Bill bill, String month) {

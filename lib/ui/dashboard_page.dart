@@ -10,9 +10,10 @@ import '../state/app_state.dart';
 import 'theme.dart';
 import 'widgets/month_switcher.dart';
 import 'widgets/count_cash_dialog.dart';
+import 'widgets/due_day_nudge.dart';
 import 'widgets/stat_card.dart';
 
-/// Home screen. "Now" shows the selected month as recorded; "If all paid"
+/// Home screen. "Today" shows the selected month as recorded; "Plan ahead"
 /// shows where cash and net position land if every expected income arrives
 /// and every bill and loan payment is made, month by month up to the
 /// selected one.
@@ -45,19 +46,29 @@ class _DashboardPageState extends State<DashboardPage> {
             spacing: 8,
             children: <Widget>[
               ChoiceChip(
-                label: const Text('Now'),
+                label: const Text('Today'),
                 selected: !_forecast,
                 onSelected: (_) => setState(() => _forecast = false),
               ),
               ChoiceChip(
                 avatar: const Icon(Icons.auto_graph, size: 18),
-                label: const Text('If all paid'),
+                label: const Text('Plan ahead'),
                 selected: _forecast,
                 onSelected: (_) => setState(() => _forecast = true),
               ),
             ],
           ),
         ),
+        if (_forecast)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'If your monthly income comes in and every bill and loan is '
+              'paid on time.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        const DueDayNudge(),
         if (_forecast && forecast == null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -82,7 +93,10 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ] else ...<Widget>[
           if (state.monthKeyValue == state.currentMonthKey)
-            _SafeToSpendCard(s: state.safeToSpendNow),
+            _SafeToSpendCard(
+              s: state.safeToSpendNow,
+              missingDueDays: state.missingDueDays,
+            ),
           const _NowCards(),
         ],
         const SizedBox(height: 8),
@@ -92,19 +106,27 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-/// "Safe to spend: ₱650 a day until payday", tap for how it is worked out.
+/// Safe to spend, said in one sentence: "₱650 a day until payday" or
+/// "Hold off spending: you'll be ₱6,458 short around 1–7 Dec". Tap for how
+/// it is worked out.
 class _SafeToSpendCard extends StatelessWidget {
-  const _SafeToSpendCard({required this.s});
+  const _SafeToSpendCard({required this.s, required this.missingDueDays});
 
   final SafeToSpend s;
+  final int missingDueDays;
 
-  String _until() {
-    final when = dayLabel(s.payday);
-    final days = '${s.days} ${s.days == 1 ? 'day' : 'days'}';
+  String get _payday {
     final name = s.paydayName;
     return name == null
-        ? 'until $when, end of month · $days'
-        : 'until $name on $when · $days';
+        ? 'the end of the month'
+        : '$name on the ${ordinalDay(s.payday.day)}';
+  }
+
+  /// "before payday" or "around 1–7 Dec".
+  String get _where {
+    if (s.free <= s.lowestAhead) return 'before payday';
+    final mon = shortMonthLabel(s.lowestMonth).split(' ').first;
+    return 'around ${s.lowestFirstDay}–${s.lowestLastDay} $mon';
   }
 
   void _explain(BuildContext context) {
@@ -112,7 +134,8 @@ class _SafeToSpendCard extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
-        Widget line(String label, String value, {Color? color, bool bold = false}) {
+        Widget line(String label, String value,
+            {Color? color, bool bold = false}) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
@@ -131,50 +154,68 @@ class _SafeToSpendCard extends StatelessWidget {
           );
         }
 
+        final laterIsLower = s.lowestAhead < s.free;
+        final mon = shortMonthLabel(s.lowestMonth).split(' ').first;
         return AlertDialog(
-          title: const Text('Safe to spend'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              line('Cash now', formatPeso(s.cashNow),
-                  color: balanceColor(dialogContext, s.cashNow)),
-              line('Due before payday', signedPeso(-s.dueBeforePayday),
-                  color: flowColor(dialogContext, -s.dueBeforePayday)),
-              const Divider(),
-              line('Free before payday', formatPeso(s.free),
-                  color: balanceColor(dialogContext, s.free)),
-              if (s.keptForLater > 0)
-                line(
-                  'Kept for bills after payday',
-                  signedPeso(-s.keptForLater),
-                  color: flowColor(dialogContext, -s.keptForLater),
+          title: const Text('How this is worked out'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                line('Cash now', formatPeso(s.cashNow),
+                    color: balanceColor(dialogContext, s.cashNow)),
+                line('Due before payday', signedPeso(-s.dueBeforePayday),
+                    color: flowColor(dialogContext, -s.dueBeforePayday)),
+                const Divider(),
+                line('Left before payday', formatPeso(s.free),
+                    color: balanceColor(dialogContext, s.free)),
+                if (laterIsLower) ...<Widget>[
+                  line(
+                    'Lowest later (${s.lowestFirstDay}–${s.lowestLastDay} $mon)',
+                    formatPeso(s.lowestAhead),
+                    color: balanceColor(dialogContext, s.lowestAhead),
+                  ),
+                  Text(
+                    'Even after payday, bills in that week bring your cash '
+                    'down to this, so the app plans around it.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+                const Divider(),
+                if (s.short)
+                  line('Short by', formatPeso(-s.budget),
+                      color: debtColor(dialogContext), bold: true)
+                else ...<Widget>[
+                  line('You can spend', formatPeso(s.budget), bold: true),
+                  line('Each day for ${s.days} '
+                      '${s.days == 1 ? 'day' : 'days'}',
+                      formatPeso(s.perDay),
+                      color: s.perDay > 0 ? incomeColor(dialogContext) : null,
+                      bold: true),
+                ],
+                const SizedBox(height: 12),
+                Text(
+                  s.short
+                      ? 'To fix it: spend only on essentials, move a payment '
+                          'later, or add income you expect.'
+                      : 'Spend up to this each day and every bill and loan '
+                          'payment until the end of next month is still '
+                          'covered.',
+                  style: theme.textTheme.bodyMedium,
                 ),
-              line('You can spend', formatPeso(s.budget),
-                  color: balanceColor(dialogContext, s.budget), bold: true),
-              line('Days until payday', '${s.days}'),
-              const Divider(),
-              line('Each day', formatPeso(s.perDay),
-                  color: s.perDay > 0 ? incomeColor(dialogContext) : null,
-                  bold: true),
-              const SizedBox(height: 12),
-              Text(
-                s.keptForLater > 0
-                    ? 'Some money is kept back because your tightest week '
-                        'after payday (${s.lowestFirstDay}–${s.lowestLastDay} '
-                        '${shortMonthLabel(s.lowestMonth).split(' ').first}) '
-                        'would otherwise run short.'
-                    : 'Bills and loan payments before payday are set aside '
-                        'first, and every week after payday stays above ₱0.',
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Checked through the end of the month after payday. Overdue '
-                'payments count as due today.',
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
+                if (missingDueDays > 0) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Text(
+                    '$missingDueDays ${missingDueDays == 1 ? 'item has' : 'items have'} '
+                    'no due day and ${missingDueDays == 1 ? 'is' : 'are'} '
+                    'counted on the 1st. Set due days for a truer number.',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: billsColor(dialogContext)),
+                  ),
+                ],
+              ],
+            ),
           ),
           actions: <Widget>[
             TextButton(
@@ -191,17 +232,40 @@ class _SafeToSpendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final short = s.short;
-    final color = short ? debtColor(context) : incomeColor(context);
+    final nothing = !short && s.perDay == 0;
+    final color = short
+        ? debtColor(context)
+        : nothing
+            ? billsColor(context)
+            : incomeColor(context);
+    final days = '${s.days} ${s.days == 1 ? 'day' : 'days'}';
+    final String headline;
+    final String sentence;
+    if (short) {
+      headline = 'Hold off spending';
+      sentence = 'You’ll be ${formatPeso(-s.budget)} short $_where, even '
+          'if every bill is paid on time.';
+    } else if (nothing) {
+      headline = 'Nothing spare';
+      sentence = 'Everything you have is needed until $_payday.';
+    } else {
+      headline = '${formatPeso(s.perDay)} a day';
+      sentence = s.keptForLater > 0
+          ? 'Until $_payday ($days). Some cash is kept for bills after '
+              'payday.'
+          : 'Until $_payday ($days), with all bills covered.';
+    }
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _explain(context),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
           child: Row(
             children: <Widget>[
-              Icon(Icons.savings_outlined, color: color),
+              Icon(short ? Icons.front_hand_outlined : Icons.savings_outlined,
+                  color: color),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -212,9 +276,7 @@ class _SafeToSpendCard extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        short
-                            ? 'Short by ${formatPeso(-s.budget)}'
-                            : '${formatPeso(s.perDay)} a day',
+                        headline,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                           fontFeatures: tabularFigures,
@@ -222,17 +284,17 @@ class _SafeToSpendCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(sentence, style: theme.textTheme.bodyMedium),
+                    const SizedBox(height: 4),
                     Text(
-                      _until(),
-                      style: theme.textTheme.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      'See how',
+                      style: theme.textTheme.labelLarge
+                          ?.copyWith(color: theme.colorScheme.primary),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -333,32 +395,32 @@ class _ForecastCards extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CardGrid(cards: <Widget>[
       StatCard(
-        label: 'Cash at month end',
+        label: 'Month-end cash',
         icon: Icons.account_balance_wallet_outlined,
         value: formatPeso(f.endCash),
         valueColor: _signColor(context, f.endCash),
-        detail: 'If all paid',
+        detail: 'After all bills',
       ),
       StatCard(
-        label: 'Owed after',
+        label: 'Loans left',
         icon: Icons.account_balance_outlined,
         value: formatPeso(f.owedAfter),
         valueColor: f.owedAfter > 0 ? debtColor(context) : null,
-        detail: 'After this month’s payments',
+        detail: 'After this month',
       ),
       StatCard(
-        label: 'Still coming in',
+        label: 'Pay to come',
         icon: Icons.arrow_downward,
         value: formatPeso(f.incomeToCome),
         valueColor: f.incomeToCome > 0 ? incomeColor(context) : null,
-        detail: 'Monthly income',
+        detail: 'This month',
       ),
       StatCard(
         label: 'Net position',
         icon: Icons.balance_outlined,
         value: formatPeso(f.netPosition),
         valueColor: _signColor(context, f.netPosition),
-        detail: 'Month end, after loans',
+        detail: 'Cash minus loans',
       ),
     ]);
   }
@@ -423,7 +485,7 @@ class _ForecastSteps extends StatelessWidget {
   }
 }
 
-/// "If all paid", block by block: 1–7, 8–14, 15–21, 22–end. Warns about the
+/// "Plan ahead", block by block: 1–7, 8–14, 15–21, 22–end. Warns about the
 /// first block that ends with cash below zero.
 class _WeekBlocksCard extends StatelessWidget {
   const _WeekBlocksCard({required this.month, required this.blocks});

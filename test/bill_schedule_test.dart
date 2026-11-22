@@ -120,6 +120,27 @@ void main() {
     expect(months[1].billsToPay, 50000 + 1200000);
   });
 
+  test('setting a due day on an old bill keeps its earlier months due', () {
+    expect(billHasDueDay(legacy), isFalse);
+    expect(billHasDueDay(weekly), isTrue);
+    final today = DateTime(2026, 11, 22);
+    // No payments yet: starts this month on that day.
+    expect(startDateForDueDay(legacy, 5, const <Entry>[], today),
+        '2026-11-05');
+    // Paid since September: starts in September, so those months stay due.
+    final paid = <Entry>[
+      pay(1, 100000, '2026-10-03'),
+      pay(1, 100000, '2026-09-04'),
+      pay(2, 50000, '2026-01-01'),
+    ];
+    expect(startDateForDueDay(legacy, 31, paid, today), '2026-09-30');
+    final withDay = legacy.copyWith(
+        startDate: startDateForDueDay(legacy, 5, paid, today));
+    expect(billDueCount(withDay, '2026-09'), 1);
+    expect(billDueCount(withDay, '2026-08'), 0);
+    expect(billDueDays(withDay, '2026-12'), <int?>[5]);
+  });
+
   test('schedule labels and round trip', () {
     String peso(int c) => 'P${c ~/ 100}';
     expect(billScheduleLabel(weekly6, peso), 'P500 a week · 6 times');

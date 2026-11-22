@@ -11,6 +11,7 @@ import 'loan_form_page.dart';
 import 'quick_add_page.dart';
 import 'theme.dart';
 import 'widgets/amount_field.dart';
+import 'widgets/due_day_nudge.dart';
 
 /// Opens the calculator.
 Future<void> showCalculator(BuildContext context) {
@@ -627,15 +628,19 @@ class _AffordTabState extends State<_AffordTab>
     final date = _date(state);
     final result =
         amount == null || amount <= 0 ? null : state.affordCheck(amount, date);
-    final earliest = result == null || result.affordable
+    // The same check without the purchase: if that is short too, the
+    // problem is already there and this purchase is not the cause.
+    final base = result == null ? null : state.affordCheck(0, date);
+    final alreadyShort = base != null && !base.affordable;
+    final earliest = result == null || result.affordable || alreadyShort
         ? null
         : state.earliestAffordableDay(amount!, date);
     final green = incomeColor(context);
     final red = debtColor(context);
-    final where = result == null
-        ? ''
-        : '${result.lowestFirstDay}–${result.lowestLastDay} '
-            '${shortMonthLabel(result.lowestMonth).split(' ').first}';
+    String whereOf(AffordResult r) =>
+        '${r.lowestFirstDay}–${r.lowestLastDay} '
+        '${shortMonthLabel(r.lowestMonth).split(' ').first}';
+    final where = result == null ? '' : whereOf(result);
     final paydayLabel = safe.paydayName == null
         ? 'End of month'
         : 'After payday (${ordinalDay(safe.payday.day)})';
@@ -680,7 +685,45 @@ class _AffordTabState extends State<_AffordTab>
           ],
         ),
         const SizedBox(height: 16),
-        if (result != null) ...<Widget>[
+        const DueDayNudge(margin: EdgeInsets.only(bottom: 12)),
+        if (result != null && base != null && alreadyShort) ...<Widget>[
+          _ResultCard(children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(Icons.front_hand_outlined, color: red, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'You’re already short',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: red,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Even without buying this, you’d be '
+              '${formatPeso(-base.lowest)} short around ${whereOf(base)}. '
+              'Buying it would make that ${formatPeso(-result.lowest)}.',
+              style: theme.textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sort out that week first: check its bills and due days, or '
+              'add income you expect.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+            'Assumes your monthly income arrives and every bill and loan '
+            'payment is made on time.',
+            style: theme.textTheme.bodySmall,
+          ),
+        ] else if (result != null) ...<Widget>[
           _ResultCard(children: <Widget>[
             Row(
               children: <Widget>[
@@ -711,7 +754,8 @@ class _AffordTabState extends State<_AffordTab>
                   ? 'Even at your tightest week after it ($where) you’d '
                       'still have ${formatPeso(result.lowest)}.'
                   : 'You’d be ${formatPeso(-result.lowest)} short around '
-                      '$where, before your money comes in.',
+                      '$where. Without it you’d be fine, so it’s a question '
+                      'of timing.',
               style: theme.textTheme.bodyLarge,
             ),
             if (!result.affordable) ...<Widget>[

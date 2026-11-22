@@ -7,6 +7,7 @@ import '../data/photos.dart';
 import '../data/repository.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
+import '../domain/bill_schedule.dart';
 import '../domain/calc.dart';
 import '../domain/summary.dart';
 import '../domain/weeks.dart';
@@ -74,6 +75,43 @@ class AppState extends ChangeNotifier {
         incomes: _incomes,
         today: DateTime.now(),
       );
+
+  /// Active bills with no due day (counted on the 1st or today).
+  List<Bill> get billsWithoutDueDay => <Bill>[
+        for (final b in _bills)
+          if (b.active && !billHasDueDay(b)) b,
+      ];
+
+  /// Loans with a balance and no due day (counted on the 1st or today).
+  List<Loan> get loansWithoutDueDay => <Loan>[
+        for (final l in _loans)
+          if (l.dueDay == null && loanBalanceOf(l) > 0) l,
+      ];
+
+  int get missingDueDays =>
+      billsWithoutDueDay.length + loansWithoutDueDay.length;
+
+  /// Gives bills and loans their due day of the month (id -> 1–31).
+  Future<void> setDueDays({
+    Map<int, int> bills = const <int, int>{},
+    Map<int, int> loans = const <int, int>{},
+  }) async {
+    final now = DateTime.now();
+    for (final entry in bills.entries) {
+      final b = billById(entry.key);
+      if (b == null) continue;
+      await _repo.updateBill(b.copyWith(
+          startDate: startDateForDueDay(b, entry.value, _entries, now)));
+    }
+    for (final entry in loans.entries) {
+      final l = loanById(entry.key);
+      if (l == null) continue;
+      await _repo.updateLoan(l.copyWith(dueDay: entry.value));
+    }
+    _bills = await _repo.bills();
+    _loans = await _repo.loans();
+    _recompute();
+  }
 
   /// "Can I afford this?" for [amount] centavos on [date].
   AffordResult affordCheck(int amount, DateTime date) => canAfford(

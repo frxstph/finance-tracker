@@ -468,3 +468,23 @@ can buy it" or "Not on …", with how short and when). The purchase week is
 checked day by day (income later in the week does not count yet), later
 weeks by their end cash. When the answer is no, `earliestAffordable`
 scans up to 62 days ahead and offers the earliest safe day.
+
+## 24. v1.11 clarity pass (same math, plainer words)
+
+- **Modes renamed:** "Now / If all paid" → "Today / Plan ahead", with a
+  one-line note under Plan ahead. Plan cards: Month-end cash, Loans left,
+  Pay to come, Net position (short details that fit).
+- **Safe to spend** leads with one sentence: "₱650 a day · Until Pay on the
+  19th (8 days), with all bills covered", or "Hold off spending · You'll be
+  ₱X short around 1–7 Dec / before payday", or "Nothing spare". "See how"
+  opens the breakdown: cash now, due before payday, left before payday,
+  lowest later (when lower), then short by or you can spend / each day.
+- **Can I buy it?** first checks the same date with ₱0: if that is already
+  short, it says "You're already short" (how much without it, how much with
+  it) instead of blaming the purchase and offering no safe day.
+- **Due-day nudge:** bills with no start date (`billHasDueDay` false) and
+  loans with a balance and no due day are counted on the 1st or today,
+  which can make early weeks look short. A banner on the Dashboard and in
+  "Can I buy it?" opens **Set due days**: one list, a day box each. A bill's
+  start date becomes that day in the month of its first payment (or this
+  month), so months it was already due stay due (`startDateForDueDay`).
