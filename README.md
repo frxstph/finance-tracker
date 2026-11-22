@@ -112,5 +112,27 @@ docs/              architecture spec
 
 ## Roadmap
 
-- **v2:** read receipt text from photos, simple charts, a month-ahead
-  forecast.
+**Next: receipt scan.** The Scan button is in place (v1.11.1). Next it
+opens the camera, reads the total and date from a receipt on the phone (no
+internet), and shows them to check before saving. See the "Scan button
+concept" design.
+
+**Then: app lock.** In Settings:
+- **App lock** on or off.
+- **PIN:** choose 4 or 6 digits, typed twice to confirm. The PIN is needed
+  to turn the lock off or change it.
+- **Biometrics** on or off (fingerprint or face). Offered only when the
+  phone supports it and a PIN is set; the PIN always works as the backup.
+- Locks when the app opens and after it has been in the background for a
+  short while; the app's preview is hidden in the recent-apps screen.
+- A forgotten PIN can't be reset (nothing is online), so the lock screen
+  points to restoring from a backup.
+
+**Later:**
+- Due date reminders (notifications before a bill or loan is due)
+- Wallets (cash, GCash, bank) with their own balances
+- Spending categories and simple charts
+- Savings goals
+- CSV export
+- Home screen widget with Safe to spend
+- Month-ahead plan
