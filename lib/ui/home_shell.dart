@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/receipt_reader.dart';
 import '../domain/receipt_match.dart';
+import '../state/app_state.dart';
 import '../state/lock_controller.dart';
 
 import 'accounts_page.dart';
