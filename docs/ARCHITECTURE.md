@@ -729,3 +729,25 @@ and adjustments are not spending.
   top, current month striped; highest and lowest full month.
 - **Quarters:** Q1–Q4 of this year, totals over the bars; compares the last
   two full quarters and gives the bills-and-loans share.
+
+## 36. v1.17 Receipts recorded as the right loan or bill payment
+
+`domain/receipt_match.dart` (unit tested) `matchPayment(guess,
+candidates)`; candidates from `AppState.paymentCandidates` (loans with a
+balance, expected = this month's suggested payment; active bills,
+expected = the bill amount).
+- By name: every identifying word of the loan or bill name (generic words
+  like loan, bill, payment, dues dropped) is on the receipt as a whole
+  word: "GLoan Dues" → GLoan. Several by name → the one whose expected
+  amount matches (within 1% or ₱5); still a tie → no match.
+- By amount alone: only when the receipt says loan (or bill / biller) and
+  exactly one candidate of that kind expects that amount.
+- No match → Daily, as before.
+
+Check and save opens with the type and link set (`initialType`,
+`initialLoanId` / `initialBillId`) and the note says "This looks like a
+payment for GLoan, so it's set as Loan payment · GLoan." Choose photos:
+each draft keeps its match (`ImportDraft.match`, `typeLabel`), "Ticked
+ones go in as" only changes unmatched drafts, Fix one offers the matched
+type as a chip, and entries are saved with `loanId` / `billId`; the summary
+counts loan and bill payments separately.

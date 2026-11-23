@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
 import '../domain/money.dart';
+import '../domain/receipt_match.dart';
 import '../domain/receipt_parser.dart';
 import '../state/app_state.dart';
 import 'widgets/amount_field.dart';
@@ -282,7 +283,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           if (widget.scan != null) ...<Widget>[
-            _ScanNote(guess: widget.scan!.guess),
+            _ScanNote(guess: widget.scan!.guess, match: widget.scan!.match),
             const SizedBox(height: 16),
           ],
           AmountField(
@@ -475,18 +476,26 @@ class _QuickAddPageState extends State<QuickAddPage> {
 
 /// A receipt photo and what was read from it.
 class ScannedReceipt {
-  const ScannedReceipt({required this.photoPath, required this.guess});
+  const ScannedReceipt({
+    required this.photoPath,
+    required this.guess,
+    this.match,
+  });
 
   final String photoPath;
   final ReceiptGuess guess;
+
+  /// The loan or bill this receipt pays, when it was recognised.
+  final PaymentMatch? match;
 }
 
 /// Top of "Check and save": says what was filled in from the receipt, or
 /// why nothing was.
 class _ScanNote extends StatelessWidget {
-  const _ScanNote({required this.guess});
+  const _ScanNote({required this.guess, this.match});
 
   final ReceiptGuess guess;
+  final PaymentMatch? match;
 
   @override
   Widget build(BuildContext context) {
@@ -519,6 +528,11 @@ class _ScanNote extends StatelessWidget {
           'save.${guess.amount == null ? ' Couldn’t find the total, so '
               'type it in.' : ''}';
     }
+    final m = match;
+    final matchLine = m == null
+        ? ''
+        : '\n\nThis looks like a payment for ${m.candidate.name}, so it’s '
+            'set as ${m.label}. Change the type below if it isn’t.';
     final bg = problem
         ? theme.colorScheme.errorContainer
         : theme.colorScheme.primaryContainer;
@@ -546,7 +560,7 @@ class _ScanNote extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  message,
+                  problem ? message : '$message$matchLine',
                   style: theme.textTheme.bodyMedium?.copyWith(color: fg),
                 ),
               ),

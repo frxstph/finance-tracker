@@ -7,6 +7,7 @@ import '../domain/bulk_import.dart';
 import '../domain/dates.dart';
 import '../domain/money.dart';
 import '../domain/models.dart';
+import '../domain/receipt_match.dart';
 import '../state/app_state.dart';
 import 'theme.dart';
 import 'widgets/amount_field.dart';
@@ -47,7 +48,10 @@ class _ImportPageState extends State<ImportPage> {
       if (_stop || !mounted) break;
       final guess = await ReceiptReader.read(path);
       if (!mounted) return;
-      setState(() => _drafts.add(ImportDraft(photoPath: path, guess: guess)));
+      final match =
+          matchPayment(guess, AppScope.read(context).paymentCandidates);
+      setState(() => _drafts
+          .add(ImportDraft(photoPath: path, guess: guess, match: match)));
     }
     if (!mounted) return;
     _review(setDefaults: true);
@@ -146,6 +150,8 @@ class _ImportPageState extends State<ImportPage> {
           amount: _drafts[i].amount!,
           note: _drafts[i].note,
           date: dateKey(_drafts[i].date!),
+          loanId: _drafts[i].loanId,
+          billId: _drafts[i].billId,
           createdAt: now,
         ),
     ];
@@ -449,8 +455,10 @@ class _ImportPageState extends State<ImportPage> {
                       if (t == null) return;
                       setState(() {
                         _typeForAll = t;
+                        // Receipts recognised as a loan or bill payment
+                        // keep that type.
                         for (final d in _drafts) {
-                          d.type = t;
+                          if (d.match == null) d.type = t;
                         }
                       });
                     },
@@ -660,8 +668,7 @@ class _DraftRow extends StatelessWidget {
                     Text(
                       date == null
                           ? 'No date found · tap to add'
-                          : '${shortDayLabel(date)} · '
-                              '${draft.type == EntryType.oneTime ? 'One-time' : 'Daily'}',
+                          : '${shortDayLabel(date)} · ${draft.typeLabel}',
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant),
                     ),
@@ -827,7 +834,15 @@ class _FixSheetState extends State<_FixSheet> {
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
+              runSpacing: 4,
               children: <Widget>[
+                if (widget.draft.match != null)
+                  ChoiceChip(
+                    label: Text(widget.draft.match!.label),
+                    selected: _type == widget.draft.match!.type,
+                    onSelected: (_) =>
+                        setState(() => _type = widget.draft.match!.type),
+                  ),
                 ChoiceChip(
                   label: const Text('Daily'),
                   selected: _type == EntryType.daily,
@@ -946,6 +961,8 @@ class _SummaryPageState extends State<_SummaryPage> {
     final total = widget.entries.fold<int>(0, (s, e) => s + e.amount);
     final daily = widget.entries.where((e) => e.type == EntryType.daily);
     final oneTime = widget.entries.where((e) => e.type == EntryType.oneTime);
+    final payments = widget.entries.where((e) =>
+        e.type == EntryType.loanPayment || e.type == EntryType.bill);
     int sum(Iterable<Entry> es) => es.fold<int>(0, (s, e) => s + e.amount);
     final safeNow = state.safeToSpendNow.perDay ~/ 100 * 100;
     Widget line(String left, Widget right) => Padding(
@@ -1004,6 +1021,9 @@ class _SummaryPageState extends State<_SummaryPage> {
                         line('Daily · ${daily.length}', money(sum(daily))),
                       if (oneTime.isNotEmpty)
                         line('One-time · ${oneTime.length}', money(sum(oneTime))),
+                      if (payments.isNotEmpty)
+                        line('Loan and bill payments · ${payments.length}',
+                            money(sum(payments))),
                       if (widget.leftOut > 0)
                         line(
                           'Left out · ${widget.leftOut}'

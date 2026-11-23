@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../data/receipt_reader.dart';
+import '../domain/receipt_match.dart';
 import '../state/lock_controller.dart';
 
 import 'accounts_page.dart';
@@ -305,13 +306,20 @@ class _HomeShellState extends State<HomeShell> {
       ),
     );
     final guess = await ReceiptReader.read(path);
+    // A receipt that pays one of your loans or bills goes in as that payment.
+    final match = mounted
+        ? matchPayment(guess, AppScope.read(context).paymentCandidates)
+        : null;
     if (!mounted) return;
     Navigator.of(context).pop(); // the "Reading" dialog
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
         builder: (_) => QuickAddPage(
-          scan: ScannedReceipt(photoPath: path, guess: guess),
+          scan: ScannedReceipt(photoPath: path, guess: guess, match: match),
+          initialType: match?.type,
+          initialLoanId: match?.loanId,
+          initialBillId: match?.billId,
         ),
       ),
     );

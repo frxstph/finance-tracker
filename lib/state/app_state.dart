@@ -8,6 +8,7 @@ import '../data/photos.dart';
 import '../data/repository.dart';
 import '../domain/dates.dart';
 import '../domain/models.dart';
+import '../domain/receipt_match.dart';
 import '../domain/reminders.dart';
 import '../domain/bill_schedule.dart';
 import '../domain/calc.dart';
@@ -107,6 +108,21 @@ class AppState extends ChangeNotifier {
     }
     return out;
   }
+
+  /// Loans still being paid and active bills, for matching a scanned
+  /// receipt to the payment it is.
+  List<PaymentCandidate> get paymentCandidates => <PaymentCandidate>[
+        for (final l in _loans)
+          if (l.id != null && loanBalanceOf(l) > 0)
+            PaymentCandidate.loan(
+              id: l.id!,
+              name: l.name,
+              expected: loanPaymentSuggestion(l),
+            ),
+        for (final b in _bills)
+          if (b.id != null && b.active)
+            PaymentCandidate.bill(id: b.id!, name: b.name, expected: b.amount),
+      ];
 
   /// Active bills with no due day (counted on the 1st or today).
   List<Bill> get billsWithoutDueDay => <Bill>[
@@ -429,6 +445,8 @@ class AppState extends ChangeNotifier {
             note: e.note.trim(),
             date: e.date,
             photo: photo,
+            billId: e.billId,
+            loanId: e.loanId,
             createdAt: e.createdAt,
           )));
         } catch (_) {

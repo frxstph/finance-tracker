@@ -1,14 +1,16 @@
 import 'dates.dart';
 import 'models.dart';
+import 'receipt_match.dart';
 import 'receipt_parser.dart';
 
 /// One photo in "Choose photos" (several at once), before it becomes an
 /// entry. Starts from what was read and holds the person's fixes.
 class ImportDraft {
-  ImportDraft({required this.photoPath, required this.guess})
+  ImportDraft({required this.photoPath, required this.guess, this.match})
       : amount = guess.amount,
         date = guess.date,
-        note = guess.store ?? '';
+        note = guess.store ?? '',
+        type = match?.type ?? EntryType.daily;
 
   final String photoPath;
   final ReceiptGuess guess;
@@ -16,7 +18,21 @@ class ImportDraft {
   int? amount;
   DateTime? date;
   String note;
-  EntryType type = EntryType.daily;
+  EntryType type;
+
+  /// The loan or bill this receipt pays, when recognised.
+  final PaymentMatch? match;
+
+  /// The loan or bill to link, when the type is that payment.
+  int? get loanId => type == EntryType.loanPayment ? match?.loanId : null;
+  int? get billId => type == EntryType.bill ? match?.billId : null;
+
+  /// "Loan payment · GLoan", "Daily", "One-time".
+  String get typeLabel {
+    final m = match;
+    if (m != null && type == m.type) return m.label;
+    return type == EntryType.oneTime ? 'One-time' : 'Daily';
+  }
 
   /// Ticked to be added.
   bool include = false;
