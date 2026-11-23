@@ -711,3 +711,21 @@ Design: "Scan button concept" canvas, screen 3. Scan › Scan a receipt opens
 - The camera is released when the app is paused and reopened on resume;
   `_starting` stops the permission prompt's pause/resume from opening two.
 - CI adds the CAMERA permission.
+
+## 35. v1.16 Spending chart
+
+Design: "Spending chart" canvas. A Spending card on the Dashboard (Today
+view, current month) with four ranges (`widgets/spending_card.dart`,
+totals in `domain/spending.dart`, unit tested). Everyday = Daily +
+One-time; bills and loans = Bill + Loan payment; income, loans received
+and adjustments are not spending.
+- **30 days:** a bar per day of everyday spending, the dashed Safe to
+  spend line, days over it in orange, tap a bar for its day and amount;
+  bills and loans listed under the chart.
+- **Weeks:** this month's quarter-month blocks (1–7, 8–14, 15–21, 22–end)
+  beside last month's in grey, the current block striped; the line under
+  the total compares month-to-date with last month by the same date.
+- **Months:** the last 12 months, everyday with bills and loans stacked on
+  top, current month striped; highest and lowest full month.
+- **Quarters:** Q1–Q4 of this year, totals over the bars; compares the last
+  two full quarters and gives the bills-and-loans share.

@@ -13,6 +13,7 @@ import 'widgets/month_switcher.dart';
 import 'widgets/count_cash_dialog.dart';
 import 'widgets/due_day_nudge.dart';
 import 'widgets/info_card.dart';
+import 'widgets/spending_card.dart';
 import 'widgets/stat_card.dart';
 
 /// Home screen. "Today" shows the selected month as recorded; "Plan ahead"
@@ -114,6 +115,10 @@ class _DashboardPageState extends State<DashboardPage> {
               missingDueDays: state.missingDueDays,
             ),
           const _NowCards(),
+          if (state.monthKeyValue == state.currentMonthKey) ...<Widget>[
+            const SizedBox(height: 8),
+            const SpendingCard(),
+          ],
         ],
         const SizedBox(height: 8),
         const _BreakdownCard(),
